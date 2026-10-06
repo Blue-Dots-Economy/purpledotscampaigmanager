@@ -61,7 +61,7 @@ function LoginPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-foreground" htmlFor="password">Password (admin only)</label>
+            <label className="text-xs font-medium text-foreground" htmlFor="password">Password</label>
             <Input
               id="password"
               type="password"
