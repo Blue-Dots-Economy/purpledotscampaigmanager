@@ -9,58 +9,23 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as UserLevelAnalysisRouteImport } from './routes/user-level-analysis'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as ReviewRouteImport } from './routes/review'
-import { Route as RequestCampaignRouteImport } from './routes/request-campaign'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as LaunchRouteImport } from './routes/launch'
-import { Route as EcosystemViewRouteImport } from './routes/ecosystem-view'
-import { Route as CampaignsRouteImport } from './routes/campaigns'
-import { Route as CampaignRequestsRouteImport } from './routes/campaign-requests'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ReviewCallIdRouteImport } from './routes/review_.$callId'
+import { Route as CampaignRequestsRouteImport } from './routes/campaign-requests'
+import { Route as CampaignsRouteImport } from './routes/campaigns'
+import { Route as EcosystemViewRouteImport } from './routes/ecosystem-view'
+import { Route as LaunchRouteImport } from './routes/launch'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as RequestCampaignRouteImport } from './routes/request-campaign'
+import { Route as ReviewRouteImport } from './routes/review'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as UserLevelAnalysisRouteImport } from './routes/user-level-analysis'
 import { Route as CampaignsCampaignRouteImport } from './routes/campaigns_.$campaign'
+import { Route as ReviewCallIdRouteImport } from './routes/review_.$callId'
 import { Route as ApiPublicHooksSyncSnapshotsRouteImport } from './routes/api/public/hooks/sync-snapshots'
 
-const UserLevelAnalysisRoute = UserLevelAnalysisRouteImport.update({
-  id: '/user-level-analysis',
-  path: '/user-level-analysis',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReviewRoute = ReviewRouteImport.update({
-  id: '/review',
-  path: '/review',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RequestCampaignRoute = RequestCampaignRouteImport.update({
-  id: '/request-campaign',
-  path: '/request-campaign',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LaunchRoute = LaunchRouteImport.update({
-  id: '/launch',
-  path: '/launch',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EcosystemViewRoute = EcosystemViewRouteImport.update({
-  id: '/ecosystem-view',
-  path: '/ecosystem-view',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CampaignsRoute = CampaignsRouteImport.update({
-  id: '/campaigns',
-  path: '/campaigns',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CampaignRequestsRoute = CampaignRequestsRouteImport.update({
@@ -68,19 +33,54 @@ const CampaignRequestsRoute = CampaignRequestsRouteImport.update({
   path: '/campaign-requests',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CampaignsRoute = CampaignsRouteImport.update({
+  id: '/campaigns',
+  path: '/campaigns',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReviewCallIdRoute = ReviewCallIdRouteImport.update({
-  id: '/review_/$callId',
-  path: '/review/$callId',
+const EcosystemViewRoute = EcosystemViewRouteImport.update({
+  id: '/ecosystem-view',
+  path: '/ecosystem-view',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LaunchRoute = LaunchRouteImport.update({
+  id: '/launch',
+  path: '/launch',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestCampaignRoute = RequestCampaignRouteImport.update({
+  id: '/request-campaign',
+  path: '/request-campaign',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReviewRoute = ReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UserLevelAnalysisRoute = UserLevelAnalysisRouteImport.update({
+  id: '/user-level-analysis',
+  path: '/user-level-analysis',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CampaignsCampaignRoute = CampaignsCampaignRouteImport.update({
   id: '/campaigns_/$campaign',
   path: '/campaigns/$campaign',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReviewCallIdRoute = ReviewCallIdRouteImport.update({
+  id: '/review_/$callId',
+  path: '/review/$callId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHooksSyncSnapshotsRoute =
@@ -202,60 +202,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/user-level-analysis': {
-      id: '/user-level-analysis'
-      path: '/user-level-analysis'
-      fullPath: '/user-level-analysis'
-      preLoaderRoute: typeof UserLevelAnalysisRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/review': {
-      id: '/review'
-      path: '/review'
-      fullPath: '/review'
-      preLoaderRoute: typeof ReviewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/request-campaign': {
-      id: '/request-campaign'
-      path: '/request-campaign'
-      fullPath: '/request-campaign'
-      preLoaderRoute: typeof RequestCampaignRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/launch': {
-      id: '/launch'
-      path: '/launch'
-      fullPath: '/launch'
-      preLoaderRoute: typeof LaunchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/ecosystem-view': {
-      id: '/ecosystem-view'
-      path: '/ecosystem-view'
-      fullPath: '/ecosystem-view'
-      preLoaderRoute: typeof EcosystemViewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/campaigns': {
-      id: '/campaigns'
-      path: '/campaigns'
-      fullPath: '/campaigns'
-      preLoaderRoute: typeof CampaignsRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/campaign-requests': {
@@ -265,18 +216,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CampaignRequestsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/campaigns': {
+      id: '/campaigns'
+      path: '/campaigns'
+      fullPath: '/campaigns'
+      preLoaderRoute: typeof CampaignsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/review_/$callId': {
-      id: '/review_/$callId'
-      path: '/review/$callId'
-      fullPath: '/review/$callId'
-      preLoaderRoute: typeof ReviewCallIdRouteImport
+    '/ecosystem-view': {
+      id: '/ecosystem-view'
+      path: '/ecosystem-view'
+      fullPath: '/ecosystem-view'
+      preLoaderRoute: typeof EcosystemViewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/launch': {
+      id: '/launch'
+      path: '/launch'
+      fullPath: '/launch'
+      preLoaderRoute: typeof LaunchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request-campaign': {
+      id: '/request-campaign'
+      path: '/request-campaign'
+      fullPath: '/request-campaign'
+      preLoaderRoute: typeof RequestCampaignRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/review': {
+      id: '/review'
+      path: '/review'
+      fullPath: '/review'
+      preLoaderRoute: typeof ReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/user-level-analysis': {
+      id: '/user-level-analysis'
+      path: '/user-level-analysis'
+      fullPath: '/user-level-analysis'
+      preLoaderRoute: typeof UserLevelAnalysisRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/campaigns_/$campaign': {
@@ -284,6 +277,13 @@ declare module '@tanstack/react-router' {
       path: '/campaigns/$campaign'
       fullPath: '/campaigns/$campaign'
       preLoaderRoute: typeof CampaignsCampaignRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/review_/$callId': {
+      id: '/review_/$callId'
+      path: '/review/$callId'
+      fullPath: '/review/$callId'
+      preLoaderRoute: typeof ReviewCallIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/sync-snapshots': {
