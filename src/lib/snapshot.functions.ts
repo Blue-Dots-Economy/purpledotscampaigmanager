@@ -756,7 +756,15 @@ export const fetchProgramAggregates = createServerFn({ method: "GET" })
         last_synced_at: payload.lastSyncedAt ?? null,
         status: payload.syncStatus ?? "idle",
       };
-      if (!snapshotRowCount) {
+      // Do NOT gate emptiness on stateRowCount alone. It is
+      // program_sync_state.row_count — bookkeeping written only by the Google
+      // Sheets sync. On the pipeline source no sync runs, so it can be 0 while
+      // the payload holds real rows. Treat rows in the payload as sufficient.
+      const rawKpis = (payload.aggregates as { kpis?: Record<string, unknown> } | undefined)?.kpis;
+      const rawMetrics = payload.metrics as Record<string, unknown> | undefined;
+      const payloadRowCount =
+        Number(rawKpis?.["total_rows"] ?? rawKpis?.["total_calls"] ?? rawMetrics?.["totalCalls"] ?? 0) || 0;
+      if (!snapshotRowCount && !payloadRowCount) {
         return emptyPayload(
           connectionCount,
           stateMeta,
