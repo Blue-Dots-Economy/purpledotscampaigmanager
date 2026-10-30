@@ -150,7 +150,7 @@ export function MobileNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const { logout, session } = useAuth();
-  // network_admin shares ecosystem's page list, so it gets the same trimmed menu.
+  // Keep the trimmed oversight menu; Network Administrators also have launch access.
   const isEcosystem = session?.role === "ecosystem" || session?.role === "network_admin";
   const groups = isEcosystem
     ? [{
@@ -159,6 +159,7 @@ export function MobileNav() {
           GROUPS[0].items[3],
           GROUPS[0].items[0],
           { to: "/", label: "Campaign Overview", icon: LayoutDashboard },
+          ...(session?.role === "network_admin" ? [GROUPS[0].items[2]] : []),
         ] as NavItem[],
       }]
     : GROUPS;

@@ -11,8 +11,8 @@ export const ROLE_ROUTES: Record<Role, string[]> = {
   coordinator: ["/user-level-analysis", "/", "/campaigns", "/review"],
   owner: ["/user-level-analysis", "/"],
   ecosystem: ["/ecosystem-view", "/user-level-analysis", "/"],
-  // Network Administrator: national oversight — campaigns + call review (read), no launch/request/settings.
-  network_admin: ["/ecosystem-view", "/user-level-analysis", "/", "/campaigns", "/review"],
+  // Network Administrator: national oversight and direct campaign launch, no settings.
+  network_admin: ["/ecosystem-view", "/user-level-analysis", "/", "/campaigns", "/review", "/launch"],
   user: ["/user-level-analysis", "/", "/campaigns", "/review"],
 };
 

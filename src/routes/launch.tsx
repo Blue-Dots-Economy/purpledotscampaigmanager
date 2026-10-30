@@ -145,7 +145,7 @@ function LaunchWizard() {
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [startPending, setStartPending] = useState(false);
   const { session } = useAuth();
-  const canDirectLaunch = session?.role === "admin" || session?.role === "jfc" || session?.role === "wc";
+  const canDirectLaunch = session?.role === "admin" || session?.role === "jfc" || session?.role === "wc" || session?.role === "network_admin";
 
   const listAgentsFn = useServerFn(listProgramAgents);
   const validateFn = useServerFn(validateContacts);
