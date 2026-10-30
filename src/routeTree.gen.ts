@@ -10,12 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as CampaignRequestsRouteImport } from './routes/campaign-requests'
 import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as EcosystemViewRouteImport } from './routes/ecosystem-view'
 import { Route as LaunchRouteImport } from './routes/launch'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as RequestCampaignRouteImport } from './routes/request-campaign'
 import { Route as ReviewRouteImport } from './routes/review'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as UserLevelAnalysisRouteImport } from './routes/user-level-analysis'
@@ -26,11 +24,6 @@ import { Route as ApiPublicHooksSyncSnapshotsRouteImport } from './routes/api/pu
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CampaignRequestsRoute = CampaignRequestsRouteImport.update({
-  id: '/campaign-requests',
-  path: '/campaign-requests',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CampaignsRoute = CampaignsRouteImport.update({
@@ -51,11 +44,6 @@ const LaunchRoute = LaunchRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RequestCampaignRoute = RequestCampaignRouteImport.update({
-  id: '/request-campaign',
-  path: '/request-campaign',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReviewRoute = ReviewRouteImport.update({
@@ -92,12 +80,10 @@ const ApiPublicHooksSyncSnapshotsRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/campaign-requests': typeof CampaignRequestsRoute
   '/campaigns': typeof CampaignsRoute
   '/ecosystem-view': typeof EcosystemViewRoute
   '/launch': typeof LaunchRoute
   '/login': typeof LoginRoute
-  '/request-campaign': typeof RequestCampaignRoute
   '/review': typeof ReviewRoute
   '/settings': typeof SettingsRoute
   '/user-level-analysis': typeof UserLevelAnalysisRoute
@@ -107,12 +93,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/campaign-requests': typeof CampaignRequestsRoute
   '/campaigns': typeof CampaignsRoute
   '/ecosystem-view': typeof EcosystemViewRoute
   '/launch': typeof LaunchRoute
   '/login': typeof LoginRoute
-  '/request-campaign': typeof RequestCampaignRoute
   '/review': typeof ReviewRoute
   '/settings': typeof SettingsRoute
   '/user-level-analysis': typeof UserLevelAnalysisRoute
@@ -123,12 +107,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/campaign-requests': typeof CampaignRequestsRoute
   '/campaigns': typeof CampaignsRoute
   '/ecosystem-view': typeof EcosystemViewRoute
   '/launch': typeof LaunchRoute
   '/login': typeof LoginRoute
-  '/request-campaign': typeof RequestCampaignRoute
   '/review': typeof ReviewRoute
   '/settings': typeof SettingsRoute
   '/user-level-analysis': typeof UserLevelAnalysisRoute
@@ -140,12 +122,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/campaign-requests'
     | '/campaigns'
     | '/ecosystem-view'
     | '/launch'
     | '/login'
-    | '/request-campaign'
     | '/review'
     | '/settings'
     | '/user-level-analysis'
@@ -155,12 +135,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/campaign-requests'
     | '/campaigns'
     | '/ecosystem-view'
     | '/launch'
     | '/login'
-    | '/request-campaign'
     | '/review'
     | '/settings'
     | '/user-level-analysis'
@@ -170,12 +148,10 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/campaign-requests'
     | '/campaigns'
     | '/ecosystem-view'
     | '/launch'
     | '/login'
-    | '/request-campaign'
     | '/review'
     | '/settings'
     | '/user-level-analysis'
@@ -186,12 +162,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  CampaignRequestsRoute: typeof CampaignRequestsRoute
   CampaignsRoute: typeof CampaignsRoute
   EcosystemViewRoute: typeof EcosystemViewRoute
   LaunchRoute: typeof LaunchRoute
   LoginRoute: typeof LoginRoute
-  RequestCampaignRoute: typeof RequestCampaignRoute
   ReviewRoute: typeof ReviewRoute
   SettingsRoute: typeof SettingsRoute
   UserLevelAnalysisRoute: typeof UserLevelAnalysisRoute
@@ -207,13 +181,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/campaign-requests': {
-      id: '/campaign-requests'
-      path: '/campaign-requests'
-      fullPath: '/campaign-requests'
-      preLoaderRoute: typeof CampaignRequestsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/campaigns': {
@@ -242,13 +209,6 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/request-campaign': {
-      id: '/request-campaign'
-      path: '/request-campaign'
-      fullPath: '/request-campaign'
-      preLoaderRoute: typeof RequestCampaignRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/review': {
@@ -298,12 +258,10 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  CampaignRequestsRoute: CampaignRequestsRoute,
   CampaignsRoute: CampaignsRoute,
   EcosystemViewRoute: EcosystemViewRoute,
   LaunchRoute: LaunchRoute,
   LoginRoute: LoginRoute,
-  RequestCampaignRoute: RequestCampaignRoute,
   ReviewRoute: ReviewRoute,
   SettingsRoute: SettingsRoute,
   UserLevelAnalysisRoute: UserLevelAnalysisRoute,
