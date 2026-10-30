@@ -1,0 +1,3 @@
+- [ ] Delete both campaign-request routes and all entry points, including the launch wizard request action.
+- [ ] Audit role landings, shared dependencies, counts, and orphaned server functions.
+- [ ] Verify route removal, permission rules, and application checks.

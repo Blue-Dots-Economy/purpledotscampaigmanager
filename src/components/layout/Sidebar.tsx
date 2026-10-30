@@ -9,7 +9,6 @@ import {
   Briefcase,
   Headphones,
   Users,
-  Inbox,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -143,14 +142,6 @@ export function Sidebar() {
   const groups = GROUPS.map((g) => ({
     ...g,
     items: g.items
-      .flatMap((item) => {
-        if (item.to !== "/launch") return [item];
-        const launchItem: NavItem =
-          role === "admin" || role === "jfc" || role === "wc"
-            ? item
-            : { to: "/request-campaign", label: "Request a campaign", icon: Rocket };
-        return [launchItem, { to: "/campaign-requests", label: "Campaign Requests", icon: Inbox } as NavItem];
-      })
       .map((item) => ({
         ...item,
         children: item.children?.filter((c) => canAccess(role, c.to)),
