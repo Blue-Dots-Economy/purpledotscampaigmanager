@@ -30,3 +30,27 @@ test("WC, legacy JFC and coordinator lose request access without losing existing
   strictEqual(canAccess("jfc", "/launch"), true);
   strictEqual(canAccess("coordinator", "/launch"), false);
 });
+
+test("Network Administrator gains only launch access and keeps its landing", () => {
+  deepStrictEqual(ROLE_ROUTES.network_admin, [
+    "/ecosystem-view", "/user-level-analysis", "/", "/campaigns", "/review", "/launch",
+  ]);
+  strictEqual(canAccess("network_admin", "/launch"), true);
+  strictEqual(canAccess("network_admin", "/settings"), false);
+  strictEqual(canAccess("network_admin", "/request-campaign"), false);
+  strictEqual(canAccess("network_admin", "/campaign-requests"), false);
+  strictEqual(DEFAULT_LANDING.network_admin, "/user-level-analysis");
+});
+
+test("All other roles retain their exact route permissions", () => {
+  const { network_admin: _networkAdmin, ...otherRoutes } = ROLE_ROUTES;
+  deepStrictEqual(otherRoutes, {
+    admin: ["*"],
+    jfc: ["/user-level-analysis", "/", "/campaigns", "/review", "/launch", "/ecosystem-view"],
+    wc: ["/user-level-analysis", "/", "/campaigns", "/review", "/launch", "/ecosystem-view"],
+    coordinator: ["/user-level-analysis", "/", "/campaigns", "/review"],
+    owner: ["/user-level-analysis", "/"],
+    ecosystem: ["/ecosystem-view", "/user-level-analysis", "/"],
+    user: ["/user-level-analysis", "/", "/campaigns", "/review"],
+  });
+});
