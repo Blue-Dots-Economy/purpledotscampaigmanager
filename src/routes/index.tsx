@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { overviewDefaultDateRange } from "@/lib/overview-date-range";
 import { useProgram } from "@/programs/context";
 import { useProgramAggregates } from "@/programs/useProgramAggregates";
 import { ProgramAnalytics } from "@/components/metrics/ProgramAnalytics";
@@ -9,19 +10,28 @@ import {
 } from "@/components/metrics/OverviewFilters";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Campaign Overview | Purple Dots" },
+      { name: "description", content: "Purple Dots campaign performance, funnel and drop analysis for the selected date range." },
+      { property: "og:title", content: "Campaign Overview | Purple Dots" },
+      { property: "og:description", content: "Purple Dots campaign performance, funnel and drop analysis for the selected date range." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Overview,
 });
 
 function Overview() {
   const { config } = useProgram();
   const isDkb = config.id === "providers";
-  const [filters, setFilters] = useState<OverviewFilterValue>({
+  const [filters, setFilters] = useState<OverviewFilterValue>(() => ({
     state: "all",
-    dateFrom: null,
-    dateTo: null,
+    ...overviewDefaultDateRange(),
     campaignType: "all",
     channel: "all",
-  });
+  }));
   const query = useProgramAggregates(config, filters);
 
   return (
