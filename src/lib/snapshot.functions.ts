@@ -617,8 +617,22 @@ export interface ProgramMetricsRaw {
   [k: string]: number | string | ProviderFunnelStage[] | undefined;
 }
 
+export interface AggregateQueryError {
+  message: string;
+  code: string | null;
+  details: string | null;
+  hint: string | null;
+}
+
 export interface AggregatePayload {
-  source: "snapshot" | "empty";
+  /** "error" = the payload query FAILED (timeout, etc.) — not the same as no data. */
+  source: "snapshot" | "empty" | "error";
+  /** Present only when source === "error". */
+  queryError?: AggregateQueryError;
+  /** Wall-clock duration of the payload RPC (diagnostics only; not displayed yet). */
+  queryMs?: number;
+  /** program_sync_state.last_error — non-empty means the sheet sync is broken. */
+  syncLastError?: string | null;
   hasSnapshot: boolean;
   totalRows: number;
   /** Total rows in the unfiltered snapshot (for distinguishing "no snapshot" vs "filter excludes everything"). */
@@ -723,6 +737,17 @@ function normalizeMetricGroups(value: unknown): MetricGroup[] {
   });
 }
 
+const PAYLOAD_WARN_MS = 5000;
+function logPayloadTiming(ms: number) {
+  if (ms > PAYLOAD_WARN_MS) {
+    console.warn(
+      `[overview] payload took ${ms} ms — SLOW: over ${PAYLOAD_WARN_MS} ms, Campaign Overview is approaching the statement timeout`,
+    );
+  } else {
+    console.log(`[overview] payload took ${ms} ms`);
+  }
+}
+
 export const fetchProgramAggregates = createServerFn({ method: "GET" })
   .inputValidator((d: { program: ProgramId; state?: string; dateFrom?: string | null; dateTo?: string | null; campaignType?: string; campaign?: string | null; channel?: string }) => d)
   .handler(async ({ data }): Promise<AggregatePayload> => {
@@ -732,10 +757,19 @@ export const fetchProgramAggregates = createServerFn({ method: "GET" })
     const dateTo = data.dateTo ?? null;
     const campaignType = data.campaignType ?? "all";
     const campaign = data.campaign ?? null;
+    const errorPayload = (err: AggregateQueryError, queryMs?: number): AggregatePayload => ({
+      ...emptyPayload(0, null, err.message),
+      source: "error",
+      emptyReason: undefined,
+      queryError: err,
+      queryMs,
+    });
     try {
       let payload: AggregateRpcPayload;
+      let queryMs: number;
+      const client = await sb();
+      const t0 = Date.now();
       try {
-        const client = await sb();
         const { data: rpcData, error } = await client.rpc("get_program_aggregate_payload", {
           _program: program,
           _state: state,
@@ -745,10 +779,36 @@ export const fetchProgramAggregates = createServerFn({ method: "GET" })
           _campaign: campaign,
           _channel: data.channel ?? "all",
         });
-        if (error) throw new Error(error.message);
+        queryMs = Date.now() - t0;
+        logPayloadTiming(queryMs);
+        if (error) {
+          console.error(`[overview] payload RPC failed: ${error.code ?? "?"} ${error.message}`, {
+            code: error.code, details: error.details, hint: error.hint,
+          });
+          return errorPayload(
+            { message: error.message, code: error.code ?? null, details: error.details ?? null, hint: error.hint ?? null },
+            queryMs,
+          );
+        }
         payload = (rpcData && typeof rpcData === "object" ? rpcData : {}) as AggregateRpcPayload;
       } catch (e) {
-        return emptyPayload(0, null, e instanceof Error ? e.message : String(e));
+        queryMs = Date.now() - t0;
+        logPayloadTiming(queryMs);
+        const message = e instanceof Error ? e.message : String(e);
+        console.error(`[overview] payload RPC threw: ${message}`);
+        return errorPayload({ message, code: null, details: null, hint: null }, queryMs);
+      }
+      // last_error is not in the RPC payload; read it separately (cheap single-row read).
+      let syncLastError: string | null = null;
+      try {
+        const { data: st } = await client
+          .from("program_sync_state")
+          .select("last_error")
+          .eq("program", program)
+          .maybeSingle();
+        syncLastError = ((st as { last_error?: string | null } | null)?.last_error ?? null) || null;
+      } catch {
+        /* non-fatal */
       }
       const connectionCount = payload.connectionCount ?? 0;
       const snapshotRowCount = Number(payload.stateRowCount ?? 0);
@@ -765,12 +825,16 @@ export const fetchProgramAggregates = createServerFn({ method: "GET" })
       const payloadRowCount =
         Number(rawKpis?.["total_rows"] ?? rawKpis?.["total_calls"] ?? rawMetrics?.["totalCalls"] ?? 0) || 0;
       if (!snapshotRowCount && !payloadRowCount) {
-        return emptyPayload(
-          connectionCount,
-          stateMeta,
-          undefined,
-          connectionCount === 0 ? "no_connections" : "no_snapshot",
-        );
+        return {
+          ...emptyPayload(
+            connectionCount,
+            stateMeta,
+            undefined,
+            connectionCount === 0 ? "no_connections" : "no_snapshot",
+          ),
+          queryMs,
+          syncLastError,
+        };
       }
       const aggregates = normalizeAggregates(payload.aggregates);
       const metricGroups = normalizeMetricGroups(payload.metricGroups);
@@ -791,9 +855,13 @@ export const fetchProgramAggregates = createServerFn({ method: "GET" })
         metrics,
         campaigns: aggregates.perDay,
         emptyReason: totalRows === 0 ? "no_results" : undefined,
+        queryMs,
+        syncLastError,
       };
     } catch (e) {
-      return emptyPayload(0, null, e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      console.error(`[overview] payload processing failed: ${message}`);
+      return errorPayload({ message, code: null, details: null, hint: null });
     }
   });
 

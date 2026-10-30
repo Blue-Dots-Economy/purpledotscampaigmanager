@@ -99,9 +99,19 @@ export function TopBar() {
     }
   };
 
+  const ago = lastSynced ? timeAgo(lastSynced) : "never";
   const ageMs = lastSynced ? Date.now() - new Date(lastSynced).getTime() : null;
   const stale = ageMs !== null && ageMs > 60 * 60_000; // > 1 hour
-  const ago = lastSynced ? timeAgo(lastSynced) : "never";
+  // Problem state: a recorded sync error, or no sync in 48h — regardless of status 'ok'.
+  const syncLastError = query.data?.syncLastError?.trim() || "";
+  const syncTooOld = ageMs !== null && ageMs > 48 * 60 * 60_000;
+  const syncProblem = Boolean(syncLastError) || syncTooOld;
+  const syncProblemReason = [
+    syncLastError && `Last sync error: ${syncLastError}`,
+    syncTooOld && `Last successful sync was ${ago} (over 48 hours).`,
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 px-6 py-5 border-b bg-background">
@@ -125,13 +135,15 @@ export function TopBar() {
               className={`text-xs ${
                 isSyncing
                   ? "text-muted-foreground"
-                  : stale
+                  : syncProblem
+                    ? "text-destructive font-medium"
+                    : stale
                     ? "text-amber-600 dark:text-amber-400"
                     : "text-muted-foreground"
               }`}
-              title={lastSynced ?? "Never synced"}
+              title={syncProblem ? syncProblemReason : (lastSynced ?? "Never synced")}
             >
-              {isSyncing ? "Updating…" : `Updated ${ago}`}
+              {isSyncing ? "Updating…" : syncProblem ? `Sync problem · ${ago}` : `Updated ${ago}`}
             </span>
             <Button
               variant="outline"

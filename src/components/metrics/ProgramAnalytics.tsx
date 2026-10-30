@@ -27,7 +27,7 @@ import {
   type DkbMetrics,
 } from "@/components/metrics/program-overviews";
 import { Panel } from "@/components/Panel";
-import { NoDataState, LoadingState } from "@/components/EmptyState";
+import { NoDataState, LoadingState, QueryErrorState } from "@/components/EmptyState";
 import { DropAnalysisHeatmap } from "@/components/metrics/DropAnalysisHeatmap";
 import { NorthStarMetrics } from "@/components/metrics/NorthStarMetrics";
 import { NorthStarTrend } from "@/components/metrics/NorthStarTrend";
@@ -183,6 +183,9 @@ export function ProgramAnalytics({
     Boolean(filters.dateFrom) ||
     Boolean(filters.dateTo) ||
     (!isDkb && filters.campaignType !== "all");
+  if (data?.source === "error") {
+    return <QueryErrorState error={data.queryError} onRetry={() => void query.refetch()} />;
+  }
   const isEmpty = !data || data.source === "empty" || data.totalRows === 0;
   if (isEmpty) {
     const reason =

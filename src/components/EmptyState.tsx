@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Database, FilterX } from "lucide-react";
+import { AlertTriangle, Database, FilterX } from "lucide-react";
 import { Panel } from "@/components/Panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -83,5 +83,39 @@ export function LoadingState() {
         <Skeleton className="h-64 rounded-xl" />
       </div>
     </div>
+  );
+}
+
+export function QueryErrorState({
+  error,
+  onRetry,
+}: {
+  error?: { message: string; code: string | null } | null;
+  onRetry?: () => void;
+}) {
+  const isTimeout = error?.code === "57014";
+  return (
+    <Panel title="Couldn't load the dashboard">
+      <div className="flex flex-col items-center gap-3 py-12 text-center">
+        <div className="rounded-full bg-destructive/10 p-3 text-destructive">
+          <AlertTriangle className="h-6 w-6" />
+        </div>
+        <p className="text-sm text-muted-foreground max-w-md">
+          {isTimeout
+            ? "The query timed out. This usually means there's more data than the current queries can aggregate in time."
+            : "The dashboard query failed. Your data has not been lost — this is a loading problem, not an empty database."}
+        </p>
+        <p className="text-xs text-muted-foreground font-mono">
+          {isTimeout
+            ? "Database error 57014: statement timeout"
+            : `Error${error?.code ? ` ${error.code}` : ""}: ${error?.message ?? "unknown"}`}
+        </p>
+        {onRetry && (
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            Retry
+          </Button>
+        )}
+      </div>
+    </Panel>
   );
 }
