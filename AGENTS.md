@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Drop-reason visuals must use the shared deterministic `reasonColor` helper so colours stay stable across filtered views.
+- Keep the initial Campaign Overview date range in the pure `overview-date-range` helper, used only by the overview route; this isolates its default from other pages and makes inclusive date boundaries testable.
