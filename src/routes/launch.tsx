@@ -53,6 +53,7 @@ import { appendLaunchLog } from "@/lib/launch-log";
 import { cn } from "@/lib/utils";
 import { loadSeekersAsync, type Seeker } from "@/lib/upSeekersCsv";
 import { buildCohort, type CohortIntent, type ConfidenceBand } from "@/lib/cohort";
+import { LAUNCH_PROGRAMS } from "@/lib/launch-program";
 
 export const Route = createFileRoute("/launch")({
   component: LaunchWizard,
@@ -108,7 +109,7 @@ function detectRegion(filename: string): { region: string; language: string; cit
 function LaunchWizard() {
   const { programId: ctxProgram, config: ctxConfig, setProgramId } = useProgram();
   const [step, setStep] = useState(0);
-  const [program, setProgram] = useState<ProgramId>(ctxProgram);
+  const [program, setProgram] = useState<ProgramId>(LAUNCH_PROGRAMS[0]);
   const config = registry[program];
   const overrides = useProgramOverrides(program);
   const defaultAgentId = overrides.rayaAgentId || config.rayaAgentId || "";
@@ -392,19 +393,22 @@ function LaunchWizard() {
 
       {step === 0 && (
         <Panel title="Step 1 · Program" description="Pick which program this batch belongs to">
-          <div className="grid gap-3 sm:grid-cols-2 max-w-xl">
-            {(["seekers", "providers"] as ProgramId[]).map((p) => (
-              <button
+          <div className="grid gap-3 w-full max-w-sm">
+            {LAUNCH_PROGRAMS.map((p) => (
+              <Button
                 key={p}
+                type="button"
+                variant="outline"
+                aria-pressed={program === p}
                 onClick={() => setProgram(p)}
                 className={cn(
-                  "rounded-xl border-2 p-5 text-left transition-colors",
+                  "h-auto w-full flex-col items-start whitespace-normal rounded-lg border-2 p-5 text-left transition-colors",
                   program === p ? "border-brand bg-brand-soft" : "border-border bg-card hover:bg-muted/40",
                 )}
               >
                 <div className="text-lg font-semibold">{registry[p].label}</div>
                 <div className="text-xs text-muted-foreground mt-1">{registry[p].subtitle}</div>
-              </button>
+              </Button>
             ))}
           </div>
         </Panel>
