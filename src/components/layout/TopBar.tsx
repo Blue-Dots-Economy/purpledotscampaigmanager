@@ -164,11 +164,13 @@ export function TopBar() {
                 </Button>
               </Link>
             )}
-            <Link to={canDirectLaunch ? "/launch" : "/request-campaign"}>
-              <Button size="sm" className="gap-1.5 bg-brand text-brand-foreground hover:bg-brand/90">
-                <Rocket className="h-4 w-4" /> {canDirectLaunch ? "Launch campaign" : "Request campaign"}
-              </Button>
-            </Link>
+            {canDirectLaunch && (
+              <Link to="/launch">
+                <Button size="sm" className="gap-1.5 bg-brand text-brand-foreground hover:bg-brand/90">
+                  <Rocket className="h-4 w-4" /> Launch campaign
+                </Button>
+              </Link>
+            )}
           </>
         )}
         {/* TEMPORARY ROUTING DIAGNOSTIC — remove once the routing issue is resolved. */}

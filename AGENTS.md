@@ -11,3 +11,4 @@
 
 - Drop-reason visuals must use the shared deterministic `reasonColor` helper so colours stay stable across filtered views.
 - Keep the initial Campaign Overview date range in the pure `overview-date-range` helper, used only by the overview route; this isolates its default from other pages and makes inclusive date boundaries testable.
+- Retire features by removing their route files and all UI callers rather than adding wildcard-role exceptions; retain request-only server modules when backend removal is out of scope.

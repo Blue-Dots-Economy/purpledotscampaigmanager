@@ -6,9 +6,9 @@ import type { Role } from "@/auth/context";
 // "wc" must carry the exact same access as the deprecated "jfc".
 export const ROLE_ROUTES: Record<Role, string[]> = {
   admin: ["*"],
-  jfc: ["/user-level-analysis", "/", "/campaigns", "/review", "/launch", "/ecosystem-view", "/campaign-requests", "/request-campaign"],
-  wc: ["/user-level-analysis", "/", "/campaigns", "/review", "/launch", "/ecosystem-view", "/campaign-requests", "/request-campaign"],
-  coordinator: ["/user-level-analysis", "/", "/campaigns", "/review", "/request-campaign"],
+  jfc: ["/user-level-analysis", "/", "/campaigns", "/review", "/launch", "/ecosystem-view"],
+  wc: ["/user-level-analysis", "/", "/campaigns", "/review", "/launch", "/ecosystem-view"],
+  coordinator: ["/user-level-analysis", "/", "/campaigns", "/review"],
   owner: ["/user-level-analysis", "/"],
   ecosystem: ["/ecosystem-view", "/user-level-analysis", "/"],
   // Network Administrator: national oversight — campaigns + call review (read), no launch/request/settings.

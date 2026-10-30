@@ -12,7 +12,6 @@ import {
 import { listProgramAgents } from "@/lib/agents.functions";
 import { recordLaunchedBatch, getNextCampaignDay } from "@/lib/launched-batches.functions";
 import { useAuth } from "@/auth/context";
-import { submitCampaignRequest } from "@/lib/campaign-requests.functions";
 import { useConcurrencyUsage, useRefreshConcurrency } from "@/hooks/useConcurrencyUsage";
 import { Link } from "@tanstack/react-router";
 import { registry, type ProgramId } from "@/programs/registry";
@@ -57,6 +56,16 @@ import { buildCohort, type CohortIntent, type ConfidenceBand } from "@/lib/cohor
 
 export const Route = createFileRoute("/launch")({
   component: LaunchWizard,
+  head: () => ({
+    meta: [
+      { title: "Launch campaign | Purple Dots" },
+      { name: "description", content: "Prepare and launch Purple Dots outreach campaigns." },
+      { property: "og:title", content: "Launch campaign | Purple Dots" },
+      { property: "og:description", content: "Prepare and launch Purple Dots outreach campaigns." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
 });
 
 const STEPS = [
@@ -135,7 +144,6 @@ function LaunchWizard() {
   const [startStatus, setStartStatus] = useState<string | null>(null);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [startPending, setStartPending] = useState(false);
-  const [requested, setRequested] = useState(false);
   const { session } = useAuth();
   const canDirectLaunch = session?.role === "admin" || session?.role === "jfc" || session?.role === "wc";
 
@@ -144,7 +152,6 @@ function LaunchWizard() {
   const createBatchFn = useServerFn(rayaCreateBatch);
   const startBatchFn = useServerFn(rayaStartBatch);
   const recordBatchFn = useServerFn(recordLaunchedBatch);
-  const submitRequestFn = useServerFn(submitCampaignRequest);
   const nextDayFn = useServerFn(getNextCampaignDay);
   const usage = useConcurrencyUsage({ enabled: !launching });
   const refreshUsage = useRefreshConcurrency();
@@ -296,68 +303,6 @@ function LaunchWizard() {
       toast.error(msg.split("\n")[0]);
     } finally {
       setLaunching(false);
-    }
-  };
-
-  const buildContacts = () =>
-    source === "cohort"
-      ? cohortContacts.map((c) => ({ ...c, _region: region }))
-      : (report?.validRows ?? []).map((r) => ({
-          contact_name: r.name,
-          contact_phone: r.phone,
-          country_code: r.cc,
-          ...r.extras,
-          _region: region,
-        }));
-
-  const requestCampaign = async () => {
-    const contacts = buildContacts();
-    if (contacts.length === 0) {
-      toast.error("No contacts to request.");
-      return;
-    }
-    try {
-      await submitRequestFn({
-        data: {
-          request: {
-            program,
-            agent_id: agentId,
-            agent_name: agentName,
-            batch_name: batchName,
-            campaign_day: campaignDay,
-            campaign_date: campaignDate,
-            campaign_type: campaignType,
-            region,
-            language: regionInfo.language,
-            city_campaign: regionInfo.city,
-            channel: "outbound",
-            source,
-            cohort_intent: source === "cohort" ? cohortIntent : null,
-            cohort_filters:
-              source === "cohort"
-                ? cohortIntent === "drive"
-                  ? { profileStatuses }
-                  : { confidenceBand }
-                : null,
-            contacts,
-            schedule: {
-              timezone: schedule.timezone,
-              start_time: schedule.startTime,
-              end_time: schedule.endTime,
-              days: schedule.days,
-            },
-            concurrency,
-            max_retries: maxRetries,
-            retry_after_hrs: retryAfterHrs,
-            selected_statuses: selectedStatuses,
-            requested_by: session?.email ?? "",
-          },
-        },
-      });
-      setRequested(true);
-      toast.success("Request submitted — it'll appear in Campaign Requests for a JFC/admin to review and launch.");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Request failed");
     }
   };
 
@@ -694,29 +639,10 @@ function LaunchWizard() {
       {step === 6 && (
         <Panel title="Step 7 · Launch" description="Create the batch in Raya and start the schedule">
           <div className="space-y-4 max-w-xl">
-            {!requested && !batchId && !launching && (
-              <div className="space-y-3">
-                <Button
-                  onClick={requestCampaign}
-                  className="bg-brand text-brand-foreground hover:bg-brand/90 gap-1.5"
-                  size="lg"
-                >
-                  <Rocket className="h-4 w-4" /> Request campaign
-                </Button>
-                {canDirectLaunch && (
-                  <div className="space-y-1">
-                    <Button onClick={launch} variant="outline" className="gap-1.5">
-                      <Rocket className="h-4 w-4" /> Launch campaign
-                    </Button>
-                    <p className="text-xs text-muted-foreground">Launch now (skips the request queue)</p>
-                  </div>
-                )}
-              </div>
-            )}
-            {requested && !batchId && (
-              <div className="rounded-md bg-brand-soft text-brand px-3 py-2 text-sm flex items-center gap-2">
-                <Check className="h-4 w-4" /> Request submitted — pending review in Campaign Requests
-              </div>
+            {!batchId && !launching && canDirectLaunch && (
+              <Button onClick={launch} variant="outline" className="gap-1.5">
+                <Rocket className="h-4 w-4" /> Launch campaign
+              </Button>
             )}
             {launching && (
               <div className="flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Creating batch and starting schedule…</div>
