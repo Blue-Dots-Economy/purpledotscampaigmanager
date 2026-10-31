@@ -887,13 +887,16 @@ export const fetchProgramAggregates = createServerFn({ method: "GET" })
 export const fetchCampaignDayRowsFn = createServerFn({ method: "GET" })
   .inputValidator((d: { program: ProgramId; day: string }) => d)
   .handler(async ({ data }): Promise<{ rows: CallRow[] }> => {
+    const state = await scopedCampaignState();
     const client = await sb();
-    const { data: out, error } = await client
+    let query = client
       .from("call_rows")
       .select("data")
       .eq("program", data.program)
       .eq("campaign_day", data.day)
       .limit(5000);
+    if (state !== "all") query = query.eq("region_code", state);
+    const { data: out, error } = await query;
     if (error) throw new Error(error.message);
     return { rows: (out ?? []).map((r: { data: CallRow }) => r.data) };
   });
@@ -918,10 +921,11 @@ export const fetchKkbDropAnalysis = createServerFn({ method: "GET" })
   )
   .handler(async ({ data }): Promise<KkbDropAnalysisPayload> => {
     const empty: KkbDropAnalysisPayload = { stages: [], buckets: [], maxCell: 0, grandTotal: 0 };
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_kkb_drop_analysis", {
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _campaign_type: data.campaignType ?? "all",
@@ -949,10 +953,11 @@ export const fetchDkbDropAnalysis = createServerFn({ method: "GET" })
   )
   .handler(async ({ data }): Promise<KkbDropAnalysisPayload> => {
     const empty: KkbDropAnalysisPayload = { stages: [], buckets: [], maxCell: 0, grandTotal: 0 };
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_dkb_drop_analysis", {
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _campaign_type: data.campaignType ?? "all",
@@ -991,11 +996,12 @@ export const fetchCampaignList = createServerFn({ method: "GET" })
     (d: { program: ProgramId; state?: string; dateFrom?: string | null; dateTo?: string | null; channel?: string }) => d,
   )
   .handler(async ({ data }): Promise<CampaignListItem[]> => {
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_campaign_list", {
         _program: data.program,
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _channel: data.channel ?? "all",
@@ -1048,11 +1054,12 @@ export const fetchCampaignDropCauses = createServerFn({ method: "GET" })
       highIntentNonApply: { segment: 0, top: [] },
       phaseShare: [],
     };
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_campaign_drop_causes", {
         _campaign: data.campaign,
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _channel: data.channel ?? "all",
@@ -1091,11 +1098,12 @@ export const fetchDkbCampaignCauses = createServerFn({ method: "GET" })
   )
   .handler(async ({ data }): Promise<DkbCampaignCausesPayload> => {
     const empty: DkbCampaignCausesPayload = { sampleCalls: 0, region: null, phaseShare: [] };
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_dkb_campaign_causes", {
         _campaign: data.campaign,
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _channel: data.channel ?? "all",
@@ -1127,11 +1135,12 @@ export const fetchFunnelCallIds = createServerFn({ method: "GET" })
     }) => d,
   )
   .handler(async ({ data }): Promise<{ count: number; ids: string[] }> => {
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_funnel_call_ids", {
         _program: data.program,
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _campaign_type: data.campaignType ?? "all",
@@ -1164,11 +1173,12 @@ export const fetchFunnelDurations = createServerFn({ method: "GET" })
     }) => d,
   )
   .handler(async ({ data }): Promise<Record<string, number>> => {
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_funnel_durations", {
         _program: data.program,
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _campaign_type: data.campaignType ?? "all",
@@ -1196,10 +1206,11 @@ export const fetchKkbCallOutcomes = createServerFn({ method: "GET" })
     (d: { state?: string; dateFrom?: string | null; dateTo?: string | null; campaignType?: string; campaign?: string | null; channel?: string }) => d,
   )
   .handler(async ({ data }): Promise<CallOutcomeCount[]> => {
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_kkb_call_outcomes", {
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _campaign_type: data.campaignType ?? "all",
