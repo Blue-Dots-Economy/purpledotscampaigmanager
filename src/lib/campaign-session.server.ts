@@ -22,7 +22,10 @@ export async function establishCampaignSession(password: string | undefined, ema
 export async function readCampaignDistrictScope(password: string | undefined): Promise<CampaignDistrictScope> {
   try {
     const session = await campaignSession(password);
-    if (!session.data.email) return resolveCampaignDistrictScope(null, true);
+    if (!session.data.email) {
+      console.error("[campaign-scope] Verified session is missing");
+      return resolveCampaignDistrictScope(null, true);
+    }
     // Re-read account attributes, so an account's district/role changes apply without a new login.
     const { data, error } = await sbForAuth().from("app_users")
       .select("role,district,active").eq("email", session.data.email).maybeSingle();
