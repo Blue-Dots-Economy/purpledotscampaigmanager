@@ -225,16 +225,15 @@ function LaunchWizard() {
         listLiveAgentsFn({ data: {} }),
       ]);
       const saved = savedResult.status === "fulfilled" ? savedResult.value : [];
-      const savedIds = new Set(saved.map((a) => a.agent_id));
       if (liveResult.status === "fulfilled") {
         return {
-          agents: liveResult.value.map((a) => ({ id: a.id, agent_id: a.id, name: a.name, saved: savedIds.has(a.id) })),
-          note: savedResult.status === "rejected" ? "Saved-agent status couldn't be checked. Raya agents are available." : null,
+          agents: liveResult.value.map((a) => ({ id: a.id, agent_id: a.id, name: a.name })),
+          note: null,
         };
       }
       console.warn("[launch] Live agent list unavailable; using saved agents");
       return {
-        agents: saved.map((a) => ({ ...a, saved: true })),
+        agents: saved,
         note: savedResult.status === "rejected"
           ? "Live and saved agent lists couldn't be loaded. Your current agent selection is still available."
           : "Live Raya agents couldn't be loaded. Showing saved agents; launching is still available.",
@@ -493,10 +492,8 @@ function LaunchWizard() {
                       <RadioGroupItem id={`launch-agent-${a.agent_id}`} value={a.agent_id} aria-label={a.name} className="shrink-0" />
                       <div className="min-w-0 flex-1 space-y-1">
                         <span className="block break-words text-sm leading-5">{a.name}</span>
-                        <span className="block break-all font-mono text-[10px] text-muted-foreground">{a.agent_id}</span>
                         <span className="flex flex-wrap items-center gap-2">
                           {(rankingQuery.data?.counts?.[a.agent_id] ?? 0) > 0 && <span className="text-xs text-muted-foreground">{rankingQuery.data?.counts?.[a.agent_id]?.toLocaleString("en-US")} calls</span>}
-                          {!a.saved && <Badge variant="outline" className="text-[10px]">Not saved</Badge>}
                         </span>
                       </div>
                     </Label>
