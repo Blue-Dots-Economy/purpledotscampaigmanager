@@ -37,7 +37,7 @@ function Overview() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <OverviewFilters value={filters} onChange={setFilters} showChannel={!isDkb} />
+        <OverviewFilters value={filters} onChange={setFilters} showChannel={!isDkb} districtScope={query.data?.districtScope} />
         {query.isFetching && (
           <span className="text-xs text-muted-foreground">Updating…</span>
         )}
