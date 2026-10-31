@@ -39,6 +39,10 @@ test("Broken pagination cannot silently return an incomplete empty list", async 
   await rejects(fetchAllRayaAgents(async () => ({ agents: [], total: 115, offset: 0, limit: 100 })), /before its total/);
 });
 
+test("A successful account with zero agents is distinct from an API failure", async () => {
+  deepStrictEqual(await fetchAllRayaAgents(async () => ({ agents: [], total: 0, offset: 0, limit: 0 })), []);
+});
+
 test("Launch registration upserts program, ID, name without overwriting saved settings", async () => {
   let target = "";
   let payload: unknown;

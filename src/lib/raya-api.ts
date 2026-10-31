@@ -40,6 +40,7 @@ export async function fetchAllRayaAgents(
     const total = Number(response.total);
     const responseOffset = Number(response.offset ?? offset);
     const responseLimit = Number(response.limit ?? response.agents.length);
+    if (total === 0 && response.agents.length === 0 && responseOffset === offset) return [];
     if (!Number.isFinite(total) || total < 0 || responseOffset !== offset || !Number.isFinite(responseLimit) || responseLimit <= 0) {
       throw new Error("Raya returned invalid agent pagination");
     }
