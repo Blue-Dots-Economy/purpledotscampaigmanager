@@ -471,7 +471,7 @@ function LaunchWizard() {
             </div>
           )}
           {agentsQuery.data && (agents.length > 0 || (agentsQuery.data.note && agentId)) && (
-            <div className="space-y-2 max-w-xl">
+            <div className="w-full min-w-0 space-y-2">
               <Label>Raya agent</Label>
               <Input aria-label="Filter agents" placeholder="Filter agents…" value={agentFilter} onChange={e => setAgentFilter(e.target.value)} />
               {rankingQuery.isFetching && <p role="status" className="text-xs text-muted-foreground">Loading call counts…</p>}
@@ -479,7 +479,7 @@ function LaunchWizard() {
               <RadioGroup
                 ref={agentListRef}
                 aria-label="Raya agents"
-                className="max-h-96 overflow-y-auto gap-0 rounded-md border border-border"
+                className="grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3"
                 value={agentId}
                 onValueChange={(v) => {
                   setAgentId(v);
@@ -488,13 +488,11 @@ function LaunchWizard() {
               >
                   {agents.length === 0 && agentId && <Label className="flex items-center gap-3 p-3"><RadioGroupItem value={agentId} />{agentName || agentId} · Current selection</Label>}
                   {visibleAgents.map((a) => (
-                    <Label key={a.id} htmlFor={`launch-agent-${a.agent_id}`} className={cn("flex cursor-pointer items-center gap-3 border-b border-border p-3 last:border-b-0", agentId === a.agent_id ? "bg-brand-soft" : "hover:bg-muted")}>
+                    <Label key={a.id} htmlFor={`launch-agent-${a.agent_id}`} className={cn("flex min-h-12 min-w-0 cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2", agentId === a.agent_id ? "bg-brand-soft" : "hover:bg-muted")}>
                       <RadioGroupItem id={`launch-agent-${a.agent_id}`} value={a.agent_id} aria-label={a.name} className="shrink-0" />
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <span className="block break-words text-sm leading-5">{a.name}</span>
-                        <span className="flex flex-wrap items-center gap-2">
-                          {(rankingQuery.data?.counts?.[a.agent_id] ?? 0) > 0 && <span className="text-xs text-muted-foreground">{rankingQuery.data?.counts?.[a.agent_id]?.toLocaleString("en-US")} calls</span>}
-                        </span>
+                      <div className="min-w-0 flex-1">
+                        <span className="block break-words text-sm leading-4">{a.name}</span>
+                        {(rankingQuery.data?.counts?.[a.agent_id] ?? 0) > 0 && <span className="block text-xs leading-4 text-muted-foreground">{rankingQuery.data?.counts?.[a.agent_id]?.toLocaleString("en-US")} calls</span>}
                       </div>
                     </Label>
                   ))}
