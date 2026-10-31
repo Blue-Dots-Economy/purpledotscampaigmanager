@@ -492,7 +492,6 @@ function LaunchWizard() {
                       <RadioGroupItem id={`launch-agent-${a.agent_id}`} value={a.agent_id} aria-label={a.name} className="shrink-0" />
                       <div className="min-w-0 flex-1 space-y-1">
                         <span className="block break-words text-sm leading-5">{a.name}</span>
-                        <span className="block break-all font-mono text-[10px] text-muted-foreground">{a.agent_id}</span>
                         <span className="flex flex-wrap items-center gap-2">
                           {(rankingQuery.data?.counts?.[a.agent_id] ?? 0) > 0 && <span className="text-xs text-muted-foreground">{rankingQuery.data?.counts?.[a.agent_id]?.toLocaleString("en-US")} calls</span>}
                         </span>
