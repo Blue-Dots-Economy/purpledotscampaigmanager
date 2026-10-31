@@ -1,6 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { CallRow } from "@/programs/data";
 import type { ProgramId } from "@/programs/registry";
+import { ENABLE_CAMPAIGN_DISTRICT_SCOPING, resolveCampaignDistrictScope, campaignScopedState, type CampaignDistrictScope } from "./campaign-district-scope";
+
+async function campaignScope() {
+  if (!ENABLE_CAMPAIGN_DISTRICT_SCOPING) return resolveCampaignDistrictScope(null);
+  const { readCampaignDistrictScope } = await import("./campaign-session.server");
+  return readCampaignDistrictScope(process.env["CAMPAIGN_SESSION_SECRET"]);
+}
+
+async function scopedCampaignState(requested?: string) {
+  return campaignScopedState(await campaignScope(), requested);
+}
 
 
 async function sb() {
@@ -625,6 +636,7 @@ export interface AggregateQueryError {
 }
 
 export interface AggregatePayload {
+  districtScope?: CampaignDistrictScope;
   /** "error" = the payload query FAILED (timeout, etc.) — not the same as no data. */
   source: "snapshot" | "empty" | "error";
   /** Present only when source === "error". */
@@ -752,7 +764,7 @@ export const fetchProgramAggregates = createServerFn({ method: "GET" })
   .inputValidator((d: { program: ProgramId; state?: string; dateFrom?: string | null; dateTo?: string | null; campaignType?: string; campaign?: string | null; channel?: string }) => d)
   .handler(async ({ data }): Promise<AggregatePayload> => {
     const program = data.program;
-    const state = data.state && data.state !== "all" ? data.state : "all";
+    let districtScope: CampaignDistrictScope | undefined;
     const dateFrom = data.dateFrom ?? null;
     const dateTo = data.dateTo ?? null;
     const campaignType = data.campaignType ?? "all";
@@ -763,8 +775,12 @@ export const fetchProgramAggregates = createServerFn({ method: "GET" })
       emptyReason: undefined,
       queryError: err,
       queryMs,
+      districtScope,
     });
     try {
+      districtScope = await campaignScope();
+      if (districtScope.error) return errorPayload({ ...districtScope.error, details: null, hint: null });
+      const state = campaignScopedState(districtScope, data.state);
       let payload: AggregateRpcPayload;
       let queryMs: number;
       const client = await sb();
@@ -834,6 +850,7 @@ export const fetchProgramAggregates = createServerFn({ method: "GET" })
           ),
           queryMs,
           syncLastError,
+          districtScope,
         };
       }
       const aggregates = normalizeAggregates(payload.aggregates);
@@ -857,6 +874,7 @@ export const fetchProgramAggregates = createServerFn({ method: "GET" })
         emptyReason: totalRows === 0 ? "no_results" : undefined,
         queryMs,
         syncLastError,
+        districtScope,
       };
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
