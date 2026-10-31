@@ -1,5 +1,5 @@
 import { test } from "node:test";
-import { deepStrictEqual, strictEqual, rejects } from "node:assert";
+import { deepStrictEqual, throws } from "node:assert";
 import { callCountsFromRows, sortAgentsByUsage } from "./agent-ranking";
 
 test("Ranking sorts usage descending then name, including zero-use ties", () => {
@@ -11,4 +11,9 @@ test("Database call volumes preserve the expected 94825, 10636 and 493 leaders",
   const counts = callCountsFromRows([{ agent_id: "hindi", calls: 94825 }, { agent_id: "telugu", calls: 10636 }, { agent_id: "marathi", calls: 493 }]);
   deepStrictEqual(counts, { hindi: 94825, telugu: 10636, marathi: 493 });
   deepStrictEqual(sortAgentsByUsage([{ agent_id: "marathi", name: "Marathi" }, { agent_id: "hindi", name: "Hindi" }, { agent_id: "telugu", name: "Telugu" }], counts).map(a => a.agent_id), ["hindi", "telugu", "marathi"]);
+});
+
+test("Empty or invalid database ranking raises an error rather than inventing zero usage", () => {
+  throws(() => callCountsFromRows([]), /no agents/);
+  throws(() => callCountsFromRows([{ agent_id: "agent", calls: NaN }]), /Invalid database call count/);
 });
