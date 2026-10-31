@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useProgram } from "@/programs/context";
 import { useAuth } from "@/auth/context";
+import { canAccess } from "@/auth/permissions";
 import { cn } from "@/lib/utils";
 import { registry } from "@/programs/registry";
 
@@ -162,7 +163,17 @@ export function MobileNav() {
           ...(session?.role === "network_admin" ? [GROUPS[0].items[2]] : []),
         ] as NavItem[],
       }]
-    : GROUPS;
+    : session?.role === "owner"
+      ? GROUPS.map((group) => ({
+          ...group,
+          items: group.items
+            .filter((item) => canAccess("owner", item.to))
+            .map((item) => ({
+              ...item,
+              children: item.children?.filter((child) => canAccess("owner", child.to)),
+            })),
+        }))
+      : GROUPS;
 
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const initial = new Set<string>();
@@ -247,7 +258,7 @@ export function MobileNav() {
           ))}
         </nav>
 
-        {!isEcosystem && (
+        {!isEcosystem && session?.role !== "owner" && (
           <div className="border-t px-3 py-2">
             {(() => {
               const item = SETTINGS;

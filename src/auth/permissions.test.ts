@@ -49,8 +49,23 @@ test("All other roles retain their exact route permissions", () => {
     jfc: ["/user-level-analysis", "/", "/campaigns", "/review", "/launch", "/ecosystem-view"],
     wc: ["/user-level-analysis", "/", "/campaigns", "/review", "/launch", "/ecosystem-view"],
     coordinator: ["/user-level-analysis", "/", "/campaigns", "/review"],
-    owner: ["/user-level-analysis", "/"],
+    owner: ["/user-level-analysis", "/", "/launch"],
     ecosystem: ["/ecosystem-view", "/user-level-analysis", "/"],
     user: ["/user-level-analysis", "/", "/campaigns", "/review"],
   });
+});
+
+test("Owner gains only Launch access", () => {
+  deepStrictEqual(ROLE_ROUTES.owner, ["/user-level-analysis", "/", "/launch"]);
+  strictEqual(canAccess("owner", "/launch"), true);
+});
+
+test("Owner cannot open other campaign, review, ecosystem or settings routes", () => {
+  for (const path of ["/campaigns", "/review", "/ecosystem-view", "/settings"]) {
+    strictEqual(canAccess("owner", path), false);
+  }
+});
+
+test("Owner keeps its default landing", () => {
+  strictEqual(DEFAULT_LANDING.owner, "/user-level-analysis");
 });

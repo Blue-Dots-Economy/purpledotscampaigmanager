@@ -159,7 +159,7 @@ function LaunchWizard() {
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [startPending, setStartPending] = useState(false);
   const { session } = useAuth();
-  const canDirectLaunch = session?.role === "admin" || session?.role === "jfc" || session?.role === "wc" || session?.role === "network_admin";
+  const canDirectLaunch = session?.role === "admin" || session?.role === "jfc" || session?.role === "wc" || session?.role === "network_admin" || session?.role === "owner";
 
   const listAgentsFn = useServerFn(listProgramAgents);
   const listLiveAgentsFn = useServerFn(rayaListAgents);

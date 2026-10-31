@@ -9,7 +9,7 @@ export const ROLE_ROUTES: Record<Role, string[]> = {
   jfc: ["/user-level-analysis", "/", "/campaigns", "/review", "/launch", "/ecosystem-view"],
   wc: ["/user-level-analysis", "/", "/campaigns", "/review", "/launch", "/ecosystem-view"],
   coordinator: ["/user-level-analysis", "/", "/campaigns", "/review"],
-  owner: ["/user-level-analysis", "/"],
+  owner: ["/user-level-analysis", "/", "/launch"],
   ecosystem: ["/ecosystem-view", "/user-level-analysis", "/"],
   // Network Administrator: national oversight and direct campaign launch, no settings.
   network_admin: ["/ecosystem-view", "/user-level-analysis", "/", "/campaigns", "/review", "/launch"],
