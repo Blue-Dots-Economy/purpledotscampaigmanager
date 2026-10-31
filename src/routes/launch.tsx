@@ -475,7 +475,7 @@ function LaunchWizard() {
             <div className="space-y-2 max-w-xl">
               <Label>Raya agent</Label>
               <Input aria-label="Filter agents" placeholder="Filter agents…" value={agentFilter} onChange={e => setAgentFilter(e.target.value)} />
-              {rankingQuery.isFetching && <p role="status" className="text-xs text-muted-foreground">Loading campaign counts…</p>}
+              {rankingQuery.isFetching && <p role="status" className="text-xs text-muted-foreground">Loading call counts…</p>}
               {(rankingQuery.error || rankingQuery.data?.error) && <p role="status" className="text-xs text-muted-foreground">Usage couldn't be loaded. Agents are listed by name.</p>}
               <RadioGroup
                 ref={agentListRef}
@@ -495,7 +495,7 @@ function LaunchWizard() {
                         <span className="block break-words text-sm leading-5">{a.name}</span>
                         <span className="block break-all font-mono text-[10px] text-muted-foreground">{a.agent_id}</span>
                         <span className="flex flex-wrap items-center gap-2">
-                          {(rankingQuery.data?.counts?.[a.agent_id] ?? 0) > 0 && <span className="text-xs text-muted-foreground">{rankingQuery.data?.counts?.[a.agent_id]} campaigns</span>}
+                          {(rankingQuery.data?.counts?.[a.agent_id] ?? 0) > 0 && <span className="text-xs text-muted-foreground">{rankingQuery.data?.counts?.[a.agent_id]?.toLocaleString("en-US")} calls</span>}
                           {!a.saved && <Badge variant="outline" className="text-[10px]">Not saved</Badge>}
                         </span>
                       </div>
