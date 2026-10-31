@@ -21,7 +21,7 @@ import { ConcurrencyChip } from "@/components/ConcurrencyChip";
 export function TopBar() {
   const { config } = useProgram();
   const { session } = useAuth();
-  const canDirectLaunch = session?.role === "admin" || session?.role === "jfc" || session?.role === "wc" || session?.role === "network_admin";
+  const canDirectLaunch = session?.role === "admin" || session?.role === "jfc" || session?.role === "wc" || session?.role === "network_admin" || session?.role === "owner";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isUserOverview = pathname === "/user-level-analysis";
   // TEMPORARY ROUTING DIAGNOSTIC — remove once the routing issue is resolved.
