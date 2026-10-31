@@ -59,6 +59,12 @@ import { getLaunchAgentUsage } from "@/lib/agent-ranking.functions";
 import { sortAgentsByUsage } from "@/lib/agent-ranking";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
+export const ENABLE_COHORT_AUDIENCE = false;
+
+export function resolveLaunchAudienceSource(selected: "upload" | "cohort"): "upload" | "cohort" {
+  return ENABLE_COHORT_AUDIENCE ? selected : "upload";
+}
+
 export const Route = createFileRoute("/launch")({
   component: LaunchWizard,
   head: () => ({
@@ -130,7 +136,8 @@ function LaunchWizard() {
   const [validating, setValidating] = useState(false);
   const [proceedInvalid, setProceedInvalid] = useState(false);
 
-  const [source, setSource] = useState<"upload" | "cohort">("upload");
+  const [selectedSource, setSource] = useState<"upload" | "cohort">("upload");
+  const source = resolveLaunchAudienceSource(selectedSource);
   const [cohortIntent, setCohortIntent] = useState<CohortIntent>("drive");
   const [profileStatuses, setProfileStatuses] = useState<string[]>(["Active", "At Risk"]);
   const [confidenceBand, setConfidenceBand] = useState<ConfidenceBand>("low");
@@ -508,7 +515,7 @@ function LaunchWizard() {
 
       {step === 2 && (
         <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2 max-w-xl">
+          {ENABLE_COHORT_AUDIENCE && <div className="grid gap-3 sm:grid-cols-2 max-w-xl">
             {([
               { id: "upload", icon: Upload, title: "Bulk upload", desc: "Dial a CSV of contacts you provide." },
               { id: "cohort", icon: Gauge, title: "Create cohort", desc: "Build an audience from My Blue Dots." },
@@ -528,7 +535,7 @@ function LaunchWizard() {
                 </span>
               </button>
             ))}
-          </div>
+          </div>}
           {source === "upload" ? (
             <UploadStep
               file={file}
