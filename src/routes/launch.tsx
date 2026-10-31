@@ -55,6 +55,9 @@ import { cn } from "@/lib/utils";
 import { loadSeekersAsync, type Seeker } from "@/lib/upSeekersCsv";
 import { buildCohort, type CohortIntent, type ConfidenceBand } from "@/lib/cohort";
 import { LAUNCH_PROGRAMS } from "@/lib/launch-program";
+import { getLaunchAgentUsage } from "@/lib/agent-ranking.functions";
+import { sortAgentsByUsage } from "@/lib/agent-ranking";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export const Route = createFileRoute("/launch")({
   component: LaunchWizard,
@@ -117,6 +120,8 @@ function LaunchWizard() {
 
   const [agentId, setAgentId] = useState<string>(defaultAgentId);
   const [agentName, setAgentName] = useState<string>("");
+  const [agentFilter, setAgentFilter] = useState("");
+  const agentListRef = useRef<HTMLDivElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<ParsedCsv | null>(null);
@@ -151,6 +156,7 @@ function LaunchWizard() {
 
   const listAgentsFn = useServerFn(listProgramAgents);
   const listLiveAgentsFn = useServerFn(rayaListAgents);
+  const agentUsageFn = useServerFn(getLaunchAgentUsage);
   const validateFn = useServerFn(validateContacts);
   const createBatchFn = useServerFn(rayaCreateBatch);
   const startBatchFn = useServerFn(rayaStartBatch);
@@ -238,6 +244,18 @@ function LaunchWizard() {
     retry: false,
   });
   const agents = agentsQuery.data?.agents ?? [];
+  const rankingQuery = useQuery({
+    queryKey: ["launch-agent-usage", agents.map(a => a.agent_id)],
+    queryFn: () => agentUsageFn({ data: { agentIds: agents.map(a => a.agent_id) } }),
+    enabled: step >= 1 && agents.length > 0,
+    retry: false,
+    staleTime: 60_000,
+  });
+  const rankedAgents = sortAgentsByUsage(agents, rankingQuery.data?.counts ?? undefined);
+  const visibleAgents = rankedAgents.filter(a => a.agent_id === agentId || a.name.toLowerCase().includes(agentFilter.toLowerCase()));
+  useEffect(() => {
+    agentListRef.current?.querySelector('[data-state="checked"]')?.scrollIntoView({ block: "nearest" });
+  }, [agentId, agentFilter, rankingQuery.data, agentsQuery.data, step]);
 
   useEffect(() => {
     if (!agentName && agentsQuery.data && agentId) {
@@ -456,25 +474,35 @@ function LaunchWizard() {
           {agentsQuery.data && (agents.length > 0 || (agentsQuery.data.note && agentId)) && (
             <div className="space-y-2 max-w-xl">
               <Label>Raya agent</Label>
-              <Select
+              <Input aria-label="Filter agents" placeholder="Filter agents…" value={agentFilter} onChange={e => setAgentFilter(e.target.value)} />
+              {rankingQuery.isFetching && <p role="status" className="text-xs text-muted-foreground">Loading campaign counts…</p>}
+              {(rankingQuery.error || rankingQuery.data?.error) && <p role="status" className="text-xs text-muted-foreground">Usage couldn't be loaded. Agents are listed by name.</p>}
+              <RadioGroup
+                ref={agentListRef}
+                aria-label="Raya agents"
+                className="max-h-96 overflow-y-auto gap-0 rounded-md border border-border"
                 value={agentId}
                 onValueChange={(v) => {
                   setAgentId(v);
                   setAgentName(agents.find((a) => a.agent_id === v)?.name ?? "");
                 }}
               >
-                <SelectTrigger><SelectValue placeholder="Select an agent" /></SelectTrigger>
-                <SelectContent>
-                  {agents.length === 0 && agentId && <SelectItem value={agentId}>{agentName || agentId} · Current selection</SelectItem>}
-                  {agents.map((a) => (
-                    <SelectItem key={a.id} value={a.agent_id}>
-                      <div className="flex flex-col">
-                        <span>{a.name} — <span className="font-mono text-[10px] opacity-60">{a.agent_id}</span>{!a.saved && <Badge variant="outline" className="ml-2 text-[10px]">Not saved</Badge>}</span>
+                  {agents.length === 0 && agentId && <Label className="flex items-center gap-3 p-3"><RadioGroupItem value={agentId} />{agentName || agentId} · Current selection</Label>}
+                  {visibleAgents.map((a) => (
+                    <Label key={a.id} htmlFor={`launch-agent-${a.agent_id}`} className={cn("flex cursor-pointer items-center gap-3 border-b border-border p-3 last:border-b-0", agentId === a.agent_id ? "bg-brand-soft" : "hover:bg-muted")}>
+                      <RadioGroupItem id={`launch-agent-${a.agent_id}`} value={a.agent_id} aria-label={a.name} className="shrink-0" />
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <span className="block break-words text-sm leading-5">{a.name}</span>
+                        <span className="block break-all font-mono text-[10px] text-muted-foreground">{a.agent_id}</span>
+                        <span className="flex flex-wrap items-center gap-2">
+                          {(rankingQuery.data?.counts?.[a.agent_id] ?? 0) > 0 && <span className="text-xs text-muted-foreground">{rankingQuery.data?.counts?.[a.agent_id]} campaigns</span>}
+                          {!a.saved && <Badge variant="outline" className="text-[10px]">Not saved</Badge>}
+                        </span>
                       </div>
-                    </SelectItem>
+                    </Label>
                   ))}
-                </SelectContent>
-              </Select>
+              </RadioGroup>
+              {visibleAgents.length === 0 && agents.length > 0 && <p className="text-sm text-muted-foreground">No matching agents.</p>}
               <p className="text-xs text-muted-foreground">
                 Manage agents in the <Link to="/settings" className="text-brand underline">Agents</Link> section.
               </p>

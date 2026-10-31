@@ -3,3 +3,4 @@
 - [x] Verify route removal, permission rules, and application checks.
 - [x] Grant Network Administrator launch access only; audit scope and role checks, verify desktop/phone navigation and enabled launch action without submitting a campaign.
 - [x] Limit Launch Step 1 to Seekers, verify the initial choice, and report the retained global-sync effect and downstream unreachable Providers behavior.
+- [x] Measure local agent coverage, add non-blocking usage ranking and a scrollable keyboard-selectable launch agent list, and verify ranking-error fallback.
