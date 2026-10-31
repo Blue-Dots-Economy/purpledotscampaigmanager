@@ -12,11 +12,7 @@ export const getLaunchAgentUsage = createServerFn({ method: "GET" })
       const { sbFor, activeSource } = await import("./db.server");
       if (activeSource() !== "purple") throw new Error("Purple database routing is unavailable");
       const { data: rows, error } = await sbFor()
-        .from("purple_dots_calls")
-        .select("agent_id,calls:count()")
-        .or("test_flag.is.null,test_flag.eq.false")
-        .not("agent_id", "is", null)
-        .neq("agent_id", "");
+        .rpc("get_agent_call_counts");
       if (error) throw new Error(error.message);
       const counts = callCountsFromRows((rows ?? []) as unknown as { agent_id: string; calls: number }[]);
       return { counts, source: "purple" as const, distinctAgents: Object.keys(counts).length, queryMs: Math.round(performance.now() - start), error: false };
