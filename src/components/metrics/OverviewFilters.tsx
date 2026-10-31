@@ -8,6 +8,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useProgram } from "@/programs/context";
 import { useProgramFilterOptions } from "@/programs/useProgramAggregates";
+import type { CampaignDistrictScope } from "@/lib/campaign-district-scope";
 
 export type StateValue = string;
 export type CampaignTypeValue = string;
@@ -41,10 +42,12 @@ export function OverviewFilters({
   value,
   onChange,
   showChannel = false,
+  districtScope,
 }: {
   value: OverviewFilterValue;
   onChange: (next: OverviewFilterValue) => void;
   showChannel?: boolean;
+  districtScope?: CampaignDistrictScope;
 }) {
   const [open, setOpen] = useState(false);
   const { config } = useProgram();
@@ -93,7 +96,11 @@ export function OverviewFilters({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {/* State segmented control */}
-      {(options?.cities.length ?? 0) > 0 && (
+      {districtScope?.district ? (
+        <Button variant="outline" size="sm" disabled aria-label={`District: ${districtScope.district}`}>
+          District: {districtScope.district}
+        </Button>
+      ) : (options?.cities.length ?? 0) > 0 && (
       <div className="inline-flex rounded-md border border-border bg-card p-0.5 text-xs">
         {stateOptions.map((opt) => {
           const active = value.state === opt.value;

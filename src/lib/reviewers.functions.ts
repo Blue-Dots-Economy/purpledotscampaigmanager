@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { ENABLE_CAMPAIGN_DISTRICT_SCOPING } from "./campaign-district-scope";
 
 // Auth + reviewer tables live wherever auth lives. Use the flag-based selector so that
 // today (cutover off) everything runs on the CURRENT project exactly as before, and at
@@ -25,6 +26,10 @@ export const resolveLogin = createServerFn({ method: "POST" })
       }
       const row = (Array.isArray(rows) ? rows[0] : rows) as Record<string, string> | undefined;
       if (row?.role) {
+        if (ENABLE_CAMPAIGN_DISTRICT_SCOPING) {
+          const { establishCampaignSession } = await import("./campaign-session.server");
+          await establishCampaignSession(process.env["CAMPAIGN_SESSION_SECRET"], email);
+        }
         return {
           role: row.role as "admin" | "user" | "ecosystem" | "jfc" | "wc" | "owner" | "coordinator" | "network_admin",
           name: row.name ?? null,
@@ -45,7 +50,13 @@ export const resolveLogin = createServerFn({ method: "POST" })
         console.error("[auth] reviewers fallback query failed:", { message: error.message, code: error.code, details: error.details, hint: error.hint });
         return { role: null, fault: true };
       }
-      if (r) return { role: "user" };
+      if (r) {
+        if (ENABLE_CAMPAIGN_DISTRICT_SCOPING) {
+          const { establishCampaignSession } = await import("./campaign-session.server");
+          await establishCampaignSession(process.env["CAMPAIGN_SESSION_SECRET"], email);
+        }
+        return { role: "user" };
+      }
     } catch (e) {
       console.error("[auth] reviewers fallback query threw:", e instanceof Error ? e.message : String(e));
       return { role: null, fault: true };

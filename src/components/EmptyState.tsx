@@ -94,6 +94,7 @@ export function QueryErrorState({
   onRetry?: () => void;
 }) {
   const isTimeout = error?.code === "57014";
+  const isScopeError = error?.code?.startsWith("CAMPAIGN_");
   return (
     <Panel title="Couldn't load the dashboard">
       <div className="flex flex-col items-center gap-3 py-12 text-center">
@@ -101,15 +102,15 @@ export function QueryErrorState({
           <AlertTriangle className="h-6 w-6" />
         </div>
         <p className="text-sm text-muted-foreground max-w-md">
-          {isTimeout
+          {isScopeError ? error?.message : isTimeout
             ? "The query timed out. This usually means there's more data than the current queries can aggregate in time."
             : "The dashboard query failed. Your data has not been lost — this is a loading problem, not an empty database."}
         </p>
-        <p className="text-xs text-muted-foreground font-mono">
+        {!isScopeError && <p className="text-xs text-muted-foreground font-mono">
           {isTimeout
             ? "Database error 57014: statement timeout"
             : `Error${error?.code ? ` ${error.code}` : ""}: ${error?.message ?? "unknown"}`}
-        </p>
+        </p>}
         {onRetry && (
           <Button variant="outline" size="sm" onClick={onRetry}>
             Retry

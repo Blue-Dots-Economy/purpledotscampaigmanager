@@ -11,7 +11,7 @@ import { CampaignSuccess } from "@/components/campaigns/CampaignSuccess";
 import { CampaignVerdictDkb } from "@/components/campaigns/CampaignVerdictDkb";
 import { CampaignSuccessDkb } from "@/components/campaigns/CampaignSuccessDkb";
 import { humanizeCampaignType } from "@/lib/campaign-name";
-import { LoadingState, NoDataState } from "@/components/EmptyState";
+import { LoadingState, NoDataState, QueryErrorState } from "@/components/EmptyState";
 import {
   Select,
   SelectContent,
@@ -29,6 +29,13 @@ export const Route = createFileRoute("/campaigns_/$campaign")({
         : undefined,
   }),
   component: CampaignReviewDetail,
+  head: () => ({ meta: [
+    { title: "Campaign analysis | Purple Dots" },
+    { name: "description", content: "Purple Dots campaign funnel, outcomes and regional comparisons." },
+    { property: "og:title", content: "Campaign analysis | Purple Dots" },
+    { property: "og:description", content: "Purple Dots campaign funnel, outcomes and regional comparisons." },
+    { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
+  ] }),
 });
 
 
@@ -45,7 +52,7 @@ function CampaignReviewDetail() {
   const channelFilter = (channel ?? "all") as ChannelValue;
   const navigate = useNavigate();
   const { config } = useProgram();
-  const { data: campaigns, isLoading } = useCampaignList(config, { channel: channelFilter });
+  const { data: campaigns, isLoading, error, refetch } = useCampaignList(config, { channel: channelFilter });
 
 
   const sorted = useMemo(
@@ -61,6 +68,7 @@ function CampaignReviewDetail() {
     ) ?? sorted.find((c) => c.campaignType === rawCampaign);
 
   if (isLoading && !campaigns) return <LoadingState />;
+  if (error) return <QueryErrorState error={{ code: "CAMPAIGN_ACCESS", message: error.message }} onRetry={() => void refetch()} />;
 
   if (!current) {
     return (

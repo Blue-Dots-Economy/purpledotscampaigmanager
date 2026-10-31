@@ -10,7 +10,7 @@ import { humanizeCampaignType } from "@/lib/campaign-name";
 import { CampaignCalendar } from "@/components/campaigns/CampaignCalendar";
 
 import { Panel } from "@/components/Panel";
-import { LoadingState } from "@/components/EmptyState";
+import { LoadingState, QueryErrorState } from "@/components/EmptyState";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -23,7 +23,13 @@ import { exportBatchToStaging } from "@/lib/raya-export.functions";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/campaigns")({ component: CampaignsPage });
+export const Route = createFileRoute("/campaigns")({ component: CampaignsPage, head: () => ({ meta: [
+  { title: "Campaigns | Purple Dots" },
+  { name: "description", content: "Purple Dots live batches and completed campaign performance." },
+  { property: "og:title", content: "Campaigns | Purple Dots" },
+  { property: "og:description", content: "Purple Dots live batches and completed campaign performance." },
+  { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
+] }) });
 
 const RECENT_WINDOW_DAYS = 2;
 const PAGE_SIZE = 12;
@@ -71,7 +77,7 @@ function CompletedCampaigns() {
   const isDkb = config.id === "providers";
   const successLabel = isDkb ? "Active providers" : "Converted";
   const [channel, setChannel] = useState<"all" | "outbound" | "inbound">("all");
-  const { data, isLoading } = useCampaignList(config, { channel });
+  const { data, isLoading, error, refetch } = useCampaignList(config, { channel });
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [view, setView] = useState<"list" | "calendar">("calendar");
@@ -97,6 +103,7 @@ function CompletedCampaigns() {
   const pageCount = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
   const clampedPage = Math.min(page, pageCount);
   const pageRows = all.slice((clampedPage - 1) * PAGE_SIZE, clampedPage * PAGE_SIZE);
+  if (error) return <QueryErrorState error={{ code: "CAMPAIGN_ACCESS", message: error.message }} onRetry={() => void refetch()} />;
   return (
     <section className="space-y-4">
       <div className="flex items-end justify-between gap-3 flex-wrap">

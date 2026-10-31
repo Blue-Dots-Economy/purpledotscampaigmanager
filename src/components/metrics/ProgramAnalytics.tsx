@@ -27,6 +27,7 @@ import {
   type DkbMetrics,
 } from "@/components/metrics/program-overviews";
 import { Panel } from "@/components/Panel";
+import { Button } from "@/components/ui/button";
 import { NoDataState, LoadingState, QueryErrorState } from "@/components/EmptyState";
 import { DropAnalysisHeatmap } from "@/components/metrics/DropAnalysisHeatmap";
 import { NorthStarMetrics } from "@/components/metrics/NorthStarMetrics";
@@ -274,6 +275,11 @@ export function ProgramAnalytics({
 
   return (
     <div className="space-y-6">
+      {campaign && data.districtScope?.district && (
+        <Button variant="outline" size="sm" disabled aria-label={`District: ${data.districtScope.district}`}>
+          District: {data.districtScope.district}
+        </Button>
+      )}
       {campaign && config.id === "seekers" && (
         <div className="flex justify-end">
           <NorthStarMetrics program={config.id} m={metrics as unknown as Record<string, number>} />

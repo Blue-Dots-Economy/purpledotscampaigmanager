@@ -1,6 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { CallRow } from "@/programs/data";
 import type { ProgramId } from "@/programs/registry";
+import { ENABLE_CAMPAIGN_DISTRICT_SCOPING, resolveCampaignDistrictScope, campaignScopedState, type CampaignDistrictScope } from "./campaign-district-scope";
+
+async function campaignScope() {
+  if (!ENABLE_CAMPAIGN_DISTRICT_SCOPING) return resolveCampaignDistrictScope(null);
+  const { readCampaignDistrictScope } = await import("./campaign-session.server");
+  return readCampaignDistrictScope(process.env["CAMPAIGN_SESSION_SECRET"]);
+}
+
+async function scopedCampaignState(requested?: string) {
+  return campaignScopedState(await campaignScope(), requested);
+}
 
 
 async function sb() {
@@ -625,6 +636,7 @@ export interface AggregateQueryError {
 }
 
 export interface AggregatePayload {
+  districtScope?: CampaignDistrictScope;
   /** "error" = the payload query FAILED (timeout, etc.) — not the same as no data. */
   source: "snapshot" | "empty" | "error";
   /** Present only when source === "error". */
@@ -752,7 +764,7 @@ export const fetchProgramAggregates = createServerFn({ method: "GET" })
   .inputValidator((d: { program: ProgramId; state?: string; dateFrom?: string | null; dateTo?: string | null; campaignType?: string; campaign?: string | null; channel?: string }) => d)
   .handler(async ({ data }): Promise<AggregatePayload> => {
     const program = data.program;
-    const state = data.state && data.state !== "all" ? data.state : "all";
+    let districtScope: CampaignDistrictScope | undefined;
     const dateFrom = data.dateFrom ?? null;
     const dateTo = data.dateTo ?? null;
     const campaignType = data.campaignType ?? "all";
@@ -763,8 +775,12 @@ export const fetchProgramAggregates = createServerFn({ method: "GET" })
       emptyReason: undefined,
       queryError: err,
       queryMs,
+      districtScope,
     });
     try {
+      districtScope = await campaignScope();
+      if (districtScope.error) return errorPayload({ ...districtScope.error, details: null, hint: null });
+      const state = campaignScopedState(districtScope, data.state);
       let payload: AggregateRpcPayload;
       let queryMs: number;
       const client = await sb();
@@ -834,6 +850,7 @@ export const fetchProgramAggregates = createServerFn({ method: "GET" })
           ),
           queryMs,
           syncLastError,
+          districtScope,
         };
       }
       const aggregates = normalizeAggregates(payload.aggregates);
@@ -857,6 +874,7 @@ export const fetchProgramAggregates = createServerFn({ method: "GET" })
         emptyReason: totalRows === 0 ? "no_results" : undefined,
         queryMs,
         syncLastError,
+        districtScope,
       };
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
@@ -869,13 +887,16 @@ export const fetchProgramAggregates = createServerFn({ method: "GET" })
 export const fetchCampaignDayRowsFn = createServerFn({ method: "GET" })
   .inputValidator((d: { program: ProgramId; day: string }) => d)
   .handler(async ({ data }): Promise<{ rows: CallRow[] }> => {
+    const state = await scopedCampaignState();
     const client = await sb();
-    const { data: out, error } = await client
+    let query = client
       .from("call_rows")
       .select("data")
       .eq("program", data.program)
       .eq("campaign_day", data.day)
       .limit(5000);
+    if (state !== "all") query = query.eq("region_code", state);
+    const { data: out, error } = await query;
     if (error) throw new Error(error.message);
     return { rows: (out ?? []).map((r: { data: CallRow }) => r.data) };
   });
@@ -900,10 +921,11 @@ export const fetchKkbDropAnalysis = createServerFn({ method: "GET" })
   )
   .handler(async ({ data }): Promise<KkbDropAnalysisPayload> => {
     const empty: KkbDropAnalysisPayload = { stages: [], buckets: [], maxCell: 0, grandTotal: 0 };
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_kkb_drop_analysis", {
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _campaign_type: data.campaignType ?? "all",
@@ -931,10 +953,11 @@ export const fetchDkbDropAnalysis = createServerFn({ method: "GET" })
   )
   .handler(async ({ data }): Promise<KkbDropAnalysisPayload> => {
     const empty: KkbDropAnalysisPayload = { stages: [], buckets: [], maxCell: 0, grandTotal: 0 };
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_dkb_drop_analysis", {
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _campaign_type: data.campaignType ?? "all",
@@ -973,11 +996,12 @@ export const fetchCampaignList = createServerFn({ method: "GET" })
     (d: { program: ProgramId; state?: string; dateFrom?: string | null; dateTo?: string | null; channel?: string }) => d,
   )
   .handler(async ({ data }): Promise<CampaignListItem[]> => {
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_campaign_list", {
         _program: data.program,
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _channel: data.channel ?? "all",
@@ -1030,11 +1054,12 @@ export const fetchCampaignDropCauses = createServerFn({ method: "GET" })
       highIntentNonApply: { segment: 0, top: [] },
       phaseShare: [],
     };
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_campaign_drop_causes", {
         _campaign: data.campaign,
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _channel: data.channel ?? "all",
@@ -1073,11 +1098,12 @@ export const fetchDkbCampaignCauses = createServerFn({ method: "GET" })
   )
   .handler(async ({ data }): Promise<DkbCampaignCausesPayload> => {
     const empty: DkbCampaignCausesPayload = { sampleCalls: 0, region: null, phaseShare: [] };
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_dkb_campaign_causes", {
         _campaign: data.campaign,
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _channel: data.channel ?? "all",
@@ -1109,11 +1135,12 @@ export const fetchFunnelCallIds = createServerFn({ method: "GET" })
     }) => d,
   )
   .handler(async ({ data }): Promise<{ count: number; ids: string[] }> => {
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_funnel_call_ids", {
         _program: data.program,
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _campaign_type: data.campaignType ?? "all",
@@ -1146,11 +1173,12 @@ export const fetchFunnelDurations = createServerFn({ method: "GET" })
     }) => d,
   )
   .handler(async ({ data }): Promise<Record<string, number>> => {
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_funnel_durations", {
         _program: data.program,
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _campaign_type: data.campaignType ?? "all",
@@ -1178,10 +1206,11 @@ export const fetchKkbCallOutcomes = createServerFn({ method: "GET" })
     (d: { state?: string; dateFrom?: string | null; dateTo?: string | null; campaignType?: string; campaign?: string | null; channel?: string }) => d,
   )
   .handler(async ({ data }): Promise<CallOutcomeCount[]> => {
+    const state = await scopedCampaignState(data.state);
     try {
       const client = await sb();
       const { data: rpcData, error } = await client.rpc("get_kkb_call_outcomes", {
-        _state: data.state && data.state !== "all" ? data.state : "all",
+        _state: state,
         _date_from: data.dateFrom ?? null,
         _date_to: data.dateTo ?? null,
         _campaign_type: data.campaignType ?? "all",
