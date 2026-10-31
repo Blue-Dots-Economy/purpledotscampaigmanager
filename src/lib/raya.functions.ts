@@ -2,7 +2,7 @@
 // inside .handler() and never sent to the browser.
 
 import { createServerFn } from "@tanstack/react-start";
-import { delay, rayaFetch, RayaApiError } from "./raya-api";
+import { delay, rayaFetch, RayaApiError, fetchAllRayaAgents } from "./raya-api";
 
 export interface RayaContact {
   contact_name: string;
@@ -141,22 +141,10 @@ export const rayaStartBatch = createServerFn({ method: "POST" })
 // ---------- listAgents ----------
 export const rayaListAgents = createServerFn({ method: "GET" })
   .inputValidator((data: { page?: number; pageSize?: number }) => data)
-  .handler(async ({ data }) => {
-    const qs = new URLSearchParams();
-    if (data.page) qs.set("page", String(data.page));
-    if (data.pageSize) qs.set("page_size", String(data.pageSize));
-    const q = qs.toString();
-    const res = await rayaFetch(`/agents${q ? `?${q}` : ""}`, { method: "GET" });
-    // Normalize → array of { id, name }
-    const raw = res as any;
-    const list: any[] = Array.isArray(raw)
-      ? raw
-      : raw?.agents ?? raw?.data ?? raw?.items ?? raw?.results ?? [];
-    return list.map((a) => ({
-      id: String(a.id ?? a.agent_id ?? a._id ?? ""),
-      name: String(a.name ?? a.agent_name ?? a.title ?? a.id ?? "Unnamed agent"),
-    })).filter((a) => a.id);
-  });
+  .handler(async ({ data }) => fetchAllRayaAgents(
+    (path) => rayaFetch(path, { method: "GET" }, { maxAttempts: 1 }),
+    data.pageSize,
+  ));
 
 // ---------- validateContacts (no Raya call — pure validation) ----------
 export const validateContacts = createServerFn({ method: "POST" })

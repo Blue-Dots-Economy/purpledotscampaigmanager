@@ -7,6 +7,7 @@ import { useProgramOverrides } from "@/lib/program-overrides";
 import {
   rayaCreateBatch,
   rayaStartBatch,
+  rayaListAgents,
   validateContacts,
 } from "@/lib/raya.functions";
 import { listProgramAgents } from "@/lib/agents.functions";
@@ -149,6 +150,7 @@ function LaunchWizard() {
   const canDirectLaunch = session?.role === "admin" || session?.role === "jfc" || session?.role === "wc" || session?.role === "network_admin";
 
   const listAgentsFn = useServerFn(listProgramAgents);
+  const listLiveAgentsFn = useServerFn(rayaListAgents);
   const validateFn = useServerFn(validateContacts);
   const createBatchFn = useServerFn(rayaCreateBatch);
   const startBatchFn = useServerFn(rayaStartBatch);
@@ -210,15 +212,36 @@ function LaunchWizard() {
   useEffect(() => { if (program !== ctxProgram) setProgramId(program); }, [program, ctxProgram, setProgramId]);
 
   const agentsQuery = useQuery({
-    queryKey: ["program-agents", program],
-    queryFn: () => listAgentsFn({ data: { program } }),
+    queryKey: ["launch-agents", program],
+    queryFn: async () => {
+      const [savedResult, liveResult] = await Promise.allSettled([
+        listAgentsFn({ data: { program } }),
+        listLiveAgentsFn({ data: {} }),
+      ]);
+      const saved = savedResult.status === "fulfilled" ? savedResult.value : [];
+      const savedIds = new Set(saved.map((a) => a.agent_id));
+      if (liveResult.status === "fulfilled") {
+        return {
+          agents: liveResult.value.map((a) => ({ id: a.id, agent_id: a.id, name: a.name, saved: savedIds.has(a.id) })),
+          note: savedResult.status === "rejected" ? "Saved-agent status couldn't be checked. Raya agents are available." : null,
+        };
+      }
+      console.warn("[launch] Live agent list unavailable; using saved agents");
+      return {
+        agents: saved.map((a) => ({ ...a, saved: true })),
+        note: savedResult.status === "rejected"
+          ? "Live and saved agent lists couldn't be loaded. Your current agent selection is still available."
+          : "Live Raya agents couldn't be loaded. Showing saved agents; launching is still available.",
+      };
+    },
     enabled: step >= 1,
     retry: false,
   });
+  const agents = agentsQuery.data?.agents ?? [];
 
   useEffect(() => {
     if (!agentName && agentsQuery.data && agentId) {
-      const found = agentsQuery.data.find((a) => a.agent_id === agentId);
+      const found = agentsQuery.data.agents.find((a) => a.agent_id === agentId);
       if (found) setAgentName(found.name);
     }
   }, [agentsQuery.data, agentId, agentName]);
@@ -415,37 +438,38 @@ function LaunchWizard() {
       )}
 
       {step === 1 && (
-        <Panel title="Step 2 · Agent" description={`Choose which saved ${program.toUpperCase()} agent will place the calls`}>
+        <Panel title="Step 2 · Agent" description="Choose which Raya agent will place the calls">
           {agentsQuery.isLoading && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading agents…</div>
           )}
-          {agentsQuery.error && (
-            <div className="rounded-md bg-red-500/15 px-3 py-2 text-sm text-red-700 dark:text-red-400">
-              {(agentsQuery.error as Error).message}
+          {agentsQuery.data?.note && (
+            <div role="status" className="flex items-start gap-2 rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{agentsQuery.data.note}
             </div>
           )}
-          {agentsQuery.data && agentsQuery.data.length === 0 && (
+          {agentsQuery.data && agents.length === 0 && !agentsQuery.data.note && (
             <div className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">
-              No agents saved for {program.toUpperCase()}.{" "}
+              No agents found in the Raya account.{" "}
               <Link to="/settings" className="text-brand underline">Add one in the Agents section</Link>.
             </div>
           )}
-          {agentsQuery.data && agentsQuery.data.length > 0 && (
+          {agentsQuery.data && (agents.length > 0 || (agentsQuery.data.note && agentId)) && (
             <div className="space-y-2 max-w-xl">
               <Label>Raya agent</Label>
               <Select
                 value={agentId}
                 onValueChange={(v) => {
                   setAgentId(v);
-                  setAgentName(agentsQuery.data?.find((a) => a.agent_id === v)?.name ?? "");
+                  setAgentName(agents.find((a) => a.agent_id === v)?.name ?? "");
                 }}
               >
                 <SelectTrigger><SelectValue placeholder="Select an agent" /></SelectTrigger>
                 <SelectContent>
-                  {agentsQuery.data.map((a) => (
+                  {agents.length === 0 && agentId && <SelectItem value={agentId}>{agentName || agentId} · Current selection</SelectItem>}
+                  {agents.map((a) => (
                     <SelectItem key={a.id} value={a.agent_id}>
                       <div className="flex flex-col">
-                        <span>{a.name} — <span className="font-mono text-[10px] opacity-60">{a.agent_id}</span></span>
+                        <span>{a.name} — <span className="font-mono text-[10px] opacity-60">{a.agent_id}</span>{!a.saved && <Badge variant="outline" className="ml-2 text-[10px]">Not saved</Badge>}</span>
                       </div>
                     </SelectItem>
                   ))}

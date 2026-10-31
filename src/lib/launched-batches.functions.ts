@@ -3,6 +3,25 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { sbFor } from "./db.server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+// Runs before metadata recording/start; a registration failure must not cancel a created Raya batch.
+export async function registerLaunchAgent(
+  client: Pick<SupabaseClient, "from">,
+  data: { program: string; agentId?: string; agentName?: string },
+) {
+  if (!data.agentId?.trim()) return;
+  try {
+    const { error } = await client.from("program_agents").upsert({
+      program: data.program,
+      agent_id: data.agentId.trim(),
+      name: data.agentName?.trim() || data.agentId.trim(),
+    }, { onConflict: "program,agent_id", ignoreDuplicates: true });
+    if (error) console.error("[launch] Agent registration failed; concurrency discovery may undercount", { code: error.code, message: error.message });
+  } catch (error) {
+    console.error("[launch] Agent registration failed; concurrency discovery may undercount", { message: error instanceof Error ? error.message : "Unknown registration failure" });
+  }
+}
 
 // Per-request client: sbFor() picks the database for the current actor.
 function sb() {
@@ -67,6 +86,7 @@ export const recordLaunchedBatch = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const c = sb();
+    await registerLaunchAgent(c, data);
     const payload = {
       batch_id: data.batchId,
       program: data.program,
