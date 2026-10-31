@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { resolveLogin } from "@/lib/reviewers.functions";
+import { clearCampaignSession } from "@/lib/campaign-scope.functions";
 
 const STORAGE_KEY = "rozgar-auth";
 const COOKIE_KEY = "rozgar_auth";
@@ -42,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const queryClient = useQueryClient();
   const resolve = useServerFn(resolveLogin);
+  const clearVerifiedSession = useServerFn(clearCampaignSession);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -65,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // too, so a previous user's cached data never shows to the next.
             try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
             clearCookie(COOKIE_KEY);
+            void clearVerifiedSession().catch(() => {});
             queryClient.clear();
           }
         }
@@ -91,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    void clearVerifiedSession().catch(() => {});
     if (typeof window !== "undefined") {
       try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
       clearCookie(COOKIE_KEY);
