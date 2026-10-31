@@ -1,35 +1,27 @@
 import { createServerFn } from "@tanstack/react-start";
-import { fetchAgentUsage, useRayaRanking } from "./agent-ranking";
-import { rayaFetch } from "./raya-api";
+import { callCountsFromRows } from "./agent-ranking";
 
 export const getLaunchAgentUsage = createServerFn({ method: "GET" })
   .inputValidator((data: { agentIds: string[] }) => {
     if (!Array.isArray(data.agentIds) || data.agentIds.length > 2000 || data.agentIds.some(id => typeof id !== "string" || !id.trim())) throw new Error("Invalid agent IDs");
     return { agentIds: [...new Set(data.agentIds)] };
   })
-  .handler(async ({ data }) => {
+  .handler(async () => {
     const start = performance.now();
-    let localRows: number | null = null;
-    let distinctAgents: number | null = null;
-    let source: "local" | "raya" = "raya";
     try {
-      const { sbFor } = await import("./db.server");
-      const { data: rows, error, count } = await sbFor().from("launched_batches").select("agent_id", { count: "exact" });
-      const localCounts: Record<string, number> = {};
-      if (!error) {
-        localRows = count ?? rows?.length ?? 0;
-        for (const row of rows ?? []) {
-          const id = String(row.agent_id ?? "").trim();
-          if (id) localCounts[id] = (localCounts[id] ?? 0) + 1;
-        }
-        distinctAgents = Object.keys(localCounts).length;
-        // A truncated history cannot establish complete local usage counts.
-        if ((rows?.length ?? 0) === localRows && !useRayaRanking(distinctAgents, data.agentIds.length)) source = "local";
-      }
-      const counts = source === "local" ? localCounts : await fetchAgentUsage(data.agentIds, path => rayaFetch(path, { method: "GET", signal: AbortSignal.timeout(15_000) }, { maxAttempts: 1 }));
-      return { counts, source, localRows, distinctAgents, queryMs: Math.round(performance.now() - start), error: false };
-    } catch {
-      console.warn("[launch] Agent usage unavailable; retaining alphabetical agent list");
-      return { counts: null, source, localRows, distinctAgents, queryMs: Math.round(performance.now() - start), error: true };
+      const { sbFor, activeSource } = await import("./db.server");
+      if (activeSource() !== "purple") throw new Error("Purple database routing is unavailable");
+      const { data: rows, error } = await sbFor()
+        .from("purple_dots_calls")
+        .select("agent_id,calls:count()")
+        .or("test_flag.is.null,test_flag.eq.false")
+        .not("agent_id", "is", null)
+        .neq("agent_id", "");
+      if (error) throw new Error(error.message);
+      const counts = callCountsFromRows((rows ?? []) as unknown as { agent_id: string; calls: number }[]);
+      return { counts, source: "purple" as const, distinctAgents: Object.keys(counts).length, queryMs: Math.round(performance.now() - start), error: false };
+    } catch (error) {
+      console.warn("[launch] Database call ranking unavailable; retaining alphabetical list", { message: error instanceof Error ? error.message : "Unknown query failure" });
+      return { counts: null, source: "purple" as const, distinctAgents: null, queryMs: Math.round(performance.now() - start), error: true };
     }
   });
