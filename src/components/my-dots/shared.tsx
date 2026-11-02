@@ -183,6 +183,19 @@ export function SectionLabel({ children, caption }: { children: React.ReactNode;
   );
 }
 
+/** Section label + bordered card wrapper shared by every organisation table. */
+export function TableShell({ title, caption, children }: { title: React.ReactNode; caption?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <SectionLabel caption={caption}>{title}</SectionLabel>
+      <div className="rounded-xl border border-border bg-card">{children}</div>
+    </div>
+  );
+}
+
+/** Uppercase table-head label used for non-sortable columns. */
+export const HEAD_LABEL = "uppercase text-xs tracking-wider";
+
 export function InfoCard({ Icon, tile, headline, sub }: { Icon: typeof Users; tile: string; headline: string; sub: string }) {
   return (
     <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">

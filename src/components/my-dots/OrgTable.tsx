@@ -5,7 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { CoordinatorRow, OrgRow } from "@/lib/my-dots-region";
-import { ACTIVITY_FORMULA, ActivityCell, ParticipantTable, SAMPLE_NOTE, SectionLabel, SortBtn, sortRows, useSort } from "./shared";
+import { ACTIVITY_FORMULA, ActivityCell, ParticipantTable, SAMPLE_NOTE, SortBtn, TableShell, sortRows, useSort } from "./shared";
 
 /** Sortable organisation → coordinator table with the participant drill dialog. Shared by district and national views. */
 export function OrgTable({ orgs: input, title = "By organisation" }: { orgs: OrgRow[]; title?: string }) {
@@ -15,13 +15,10 @@ export function OrgTable({ orgs: input, title = "By organisation" }: { orgs: Org
   const orgs = sortRows(input, sortKey, sortDir);
   return (
     <>
-        <div>
-          <SectionLabel
-            caption={`${orgs.length} organisations · ${orgs.reduce((n, o) => n + o.coordinators.length, 0)} coordinators · ranked by activity · expand to drill in`}
-          >
-            {title}
-          </SectionLabel>
-          <div className="rounded-xl border border-border bg-card">
+        <TableShell
+          title={title}
+          caption={`${orgs.length} organisations · ${orgs.reduce((n, o) => n + o.coordinators.length, 0)} coordinators · ranked by activity · expand to drill in`}
+        >
             <Table>
               <TableHeader>
                 <TableRow>
