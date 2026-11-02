@@ -9,5 +9,8 @@ export function participantRollupQueryOptions(actor: string, domain: Participant
 }
 export function useParticipantRollup(actor: string, domain: ParticipantDomain) {
   const fetcher = useServerFn(fetchParticipantRollup);
-  return useSuspenseQuery(participantRollupQueryOptions(actor, domain, fetcher));
+  const query = useSuspenseQuery(participantRollupQueryOptions(actor, domain, fetcher));
+  // A failed manual refresh must not silently keep apparently healthy cached figures.
+  if (query.error) throw query.error;
+  return query;
 }
