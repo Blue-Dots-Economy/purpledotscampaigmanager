@@ -11,12 +11,15 @@ import { useTheme, resolveDark } from "@/lib/theme";
 
 
 export const Route = createFileRoute("/login")({
+  validateSearch: (search: Record<string, unknown>): { reason?: "session-refresh" } =>
+    search.reason === "session-refresh" ? { reason: "session-refresh" } : {},
   component: LoginPage,
 });
 
 function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { reason } = Route.useSearch();
   const { theme } = useTheme();
   const isDark = resolveDark(theme);
   const [email, setEmail] = useState("");
@@ -50,6 +53,11 @@ function LoginPage() {
           <h1 className="sr-only">Purple Dots</h1>
         </div>
 
+        {reason === "session-refresh" && (
+          <p role="status" className="mt-4 rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+            Live participant data needs a fresh sign-in after the latest update. Sign in again to continue — your work is unaffected.
+          </p>
+        )}
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-foreground" htmlFor="email">Email</label>
