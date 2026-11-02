@@ -5,9 +5,10 @@ export type EcosystemOverviewResult = EcosystemOverview & { source: "purple" };
 
 export const fetchEcosystemOverview = createServerFn({ method: "GET" }).handler(async (): Promise<EcosystemOverviewResult> => {
   try {
-    const { campaignSession } = await import("./campaign-session.server");
-    const session = await campaignSession(process.env["CAMPAIGN_SESSION_SECRET"]);
-    const email = session.data.email;
+    const { resolveRequestIdentity } = await import("./campaign-session.server");
+    const identity = await resolveRequestIdentity(process.env["CAMPAIGN_SESSION_SECRET"]);
+    console.info("[ecosystem] identity path", { path: identity.path });
+    const email = identity.email;
     if (!email) throw new Error("Ecosystem access could not be verified. Please sign in again.");
     const { sbFor, sbForAuth, activeSource } = await import("./db.server");
     if (activeSource() !== "purple")
