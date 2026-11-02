@@ -14,3 +14,4 @@
 - Retire features by removing their route files and all UI callers rather than adding wildcard-role exceptions; retain request-only server modules when backend removal is out of scope.
 - Keep launch eligibility and initial selection in the wizard-only launch-program module so changing launch choices cannot restrict global program browsing.
 - Keep launch-agent ranking separate from agent discovery and selection; ranking failures must preserve the selectable alphabetical list.
+- UI changes must reuse the existing shared components for that surface (e.g. `src/components/my-dots/shared.tsx`), adding props rather than forking; any new top-level view that duplicates an existing one must be called out explicitly in the reply with before/after screenshots, because written summaries hide design divergence.
