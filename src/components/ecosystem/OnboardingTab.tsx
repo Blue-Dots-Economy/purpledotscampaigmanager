@@ -59,11 +59,11 @@ const Req = () => <span className="text-red-600 dark:text-red-400"> *</span>;
 export function OnboardingTab({ region }: { region: RegionValue }) {
   return (
     <div className="space-y-6">
-      <HealthRow region={region} />
+      <HealthRow />
       <AddParticipants />
       <ShareLink region={region} />
-      <YourLinks region={region} />
-      <FlaggedSection region={region} />
+      <YourLinks />
+      <FlaggedSection />
     </div>
   );
 }
@@ -564,8 +564,8 @@ function fieldFromIssue(issue: string): string {
   return m ? m[1].trim() : "Field";
 }
 
-function FlaggedSection({ region }: { region: RegionValue }) {
-  const profiles = useMemo(() => getFlaggedProfiles(region), [region]);
+function FlaggedSection() {
+  const profiles = NO_FLAGS;
   const [fixing, setFixing] = useState<FlaggedProfile | null>(null);
   const [value, setValue] = useState("");
 
@@ -609,6 +609,13 @@ function FlaggedSection({ region }: { region: RegionValue }) {
                 </TableCell>
               </TableRow>
             ))}
+            {profiles.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  No flagged profiles — nothing is waiting for correction.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
@@ -632,6 +639,11 @@ function FlaggedSection({ region }: { region: RegionValue }) {
             </div>
           </div>
         ))}
+        {profiles.length === 0 && (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No flagged profiles — nothing is waiting for correction.
+          </p>
+        )}
       </div>
 
       <Sheet open={!!fixing} onOpenChange={(o) => !o && setFixing(null)}>
