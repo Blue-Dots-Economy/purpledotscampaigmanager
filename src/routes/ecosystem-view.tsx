@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { RefreshCw, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, ChevronRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -29,29 +29,28 @@ import {
 import { Panel } from "@/components/Panel";
 import { MetricCard } from "@/components/metrics/MetricCard";
 import { NATIONAL_REGION, RegionSelector, type RegionValue } from "@/components/ecosystem/RegionSelector";
-import { SampleChip } from "@/components/my-dots/shared";
 import { OnboardingTab } from "@/components/ecosystem/OnboardingTab";
+import { useEcosystemOverview } from "@/hooks/useEcosystemOverview";
 import {
-  actionGap,
-  demandSupplyGap,
-  gapLevel,
-  getAggregatorsForNeed,
-  getEcosystemTotals,
-  getProviderCategories,
-  getProvidersForCategory,
-  getSeekerNeeds,
-  recommendedActions,
-  type GapLevelLabel,
-} from "@/lib/ecosystem-data";
+  connectionWindowLabel,
+  seekersWithoutNeeds,
+  toProviderGapRows,
+  toSeekerGapRows,
+  totalSeekerDemandGap,
+  type ProviderGapRow,
+  type SeekerGapRow,
+} from "@/lib/ecosystem-live";
+import type { EcosystemOverviewResult } from "@/lib/ecosystem.functions";
+import { gapLevel, recommendedActions, type GapLevelLabel } from "@/lib/ecosystem-data";
 
 export const Route = createFileRoute("/ecosystem-view")({
   component: EcosystemView,
   head: () => ({
     meta: [
       { title: "Ecosystem view · Purple Dots" },
-      { name: "description", content: "Provider and seeker gap analysis by district." },
+      { name: "description", content: "Provider and seeker gap analysis from live connection data." },
       { property: "og:title", content: "Ecosystem view · Purple Dots" },
-      { property: "og:description", content: "Provider and seeker gap analysis by district." },
+      { property: "og:description", content: "Provider and seeker gap analysis from live connection data." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -78,6 +77,13 @@ function GapNumber({ value }: { value: number }) {
   return <span className="tabular-nums text-red-600 dark:text-red-400">{fmt(value)}</span>;
 }
 
+/** Cells for fields with no live source render an em dash, never a number. */
+function Cell({ value, red }: { value: number | null; red?: boolean }) {
+  if (value === null) return <span className="text-muted-foreground">—</span>;
+  if (red) return <GapNumber value={value} />;
+  return <span className="tabular-nums">{fmt(value)}</span>;
+}
+
 function Actions({ items }: { items: string[] }) {
   if (!items.length) return <span className="text-muted-foreground">—</span>;
   return (
@@ -96,25 +102,41 @@ function Actions({ items }: { items: string[] }) {
   );
 }
 
-function relativeAge(iso: string): string {
-  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+function relativeAge(ms: number): string {
+  const mins = Math.max(0, Math.round((Date.now() - ms) / 60000));
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
   return `${Math.round(mins / 60)}h ago`;
 }
 
-function EcosystemView() {
-  const [region, setRegion] = useState<RegionValue>(NATIONAL_REGION);
-  const [syncedAt, setSyncedAt] = useState(() => new Date().toISOString());
+function LiveChip({ first, last }: { first: string; last: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-green-500/10 px-2 py-0.5 text-[11px] text-green-700 dark:text-green-400"
+      title="Figures come from the live Purple database"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+      Live data · connections {connectionWindowLabel(first, last)}
+    </span>
+  );
+}
 
-  const totals = useMemo(() => getEcosystemTotals(region), [region, syncedAt]);
+function EcosystemView() {
+  // District filtering is disabled: the live data has no location field yet,
+  // so every figure below is national. The selector stays visible but disabled.
+  const [region] = useState<RegionValue>(NATIONAL_REGION);
+  const query = useEcosystemOverview();
+  const data = query.data ?? null;
 
   return (
     <Tabs defaultValue="providers" className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex flex-wrap items-center gap-2">
-          <RegionSelector value={region} onChange={setRegion} />
-          <SampleChip />
+          <RegionSelector value={region} onChange={() => {}} disabled />
+          <span className="text-xs text-muted-foreground max-w-[280px]">
+            District filtering is off — the live data has no district information yet, so all figures are national.
+          </span>
+          {data ? <LiveChip first={data.totals.firstConnection} last={data.totals.lastConnection} /> : null}
           <TabsList>
             <TabsTrigger
               value="providers"
@@ -137,46 +159,84 @@ function EcosystemView() {
           </TabsList>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-xs font-normal text-muted-foreground">
-            {`Synced ${relativeAge(syncedAt)}`}
-          </Badge>
+          {data ? (
+            <Badge variant="outline" className="text-xs font-normal text-muted-foreground">
+              {`Loaded ${relativeAge(query.dataUpdatedAt)}`}
+            </Badge>
+          ) : null}
           <Button
             size="sm"
             variant="outline"
             className="h-8 gap-1.5 text-xs"
-            onClick={() => setSyncedAt(new Date().toISOString())}
+            disabled={query.isFetching}
+            onClick={() => void query.refetch()}
           >
-            <RefreshCw className="h-3.5 w-3.5" />
+            <RefreshCw className={`h-3.5 w-3.5 ${query.isFetching ? "animate-spin" : ""}`} />
             Sync now
           </Button>
         </div>
       </div>
 
-      <TabsContent value="providers" className="space-y-6 mt-0">
-        <TotalsRow totals={totals} />
-        <GapSummary totals={totals} />
-        <ProvidersGapPanel region={region} />
-      </TabsContent>
+      {query.isPending ? (
+        <Panel title="Loading live ecosystem data">
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            Reading categories, provider types and totals from the live database…
+          </p>
+        </Panel>
+      ) : query.isError || !data ? (
+        <Panel title="Live ecosystem data could not be loaded">
+          <div className="py-8 flex flex-col items-center gap-3 text-center">
+            <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+            <p className="text-sm text-muted-foreground max-w-md">
+              {query.error instanceof Error
+                ? query.error.message
+                : "The live ecosystem query failed. No sample or empty data has been substituted."}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
+              Retry
+            </Button>
+          </div>
+        </Panel>
+      ) : (
+        <>
+          <p className="text-xs text-muted-foreground -mt-3">
+            {fmt(seekersWithoutNeeds(data.totals))} of {fmt(data.totals.totalSeekers)} seekers (
+            {Math.round((seekersWithoutNeeds(data.totals) / Math.max(1, data.totals.totalSeekers)) * 100)}%) have no
+            recorded need yet. Category demand counts every recorded need, so a seeker with two needs appears in both
+            categories.
+          </p>
+          <TabsContent value="providers" className="space-y-6 mt-0">
+            <TotalsRow data={data} />
+            <GapSummary data={data} />
+            <ProvidersGapPanel rows={toProviderGapRows(data.categories)} />
+          </TabsContent>
 
-      <TabsContent value="seekers" className="space-y-6 mt-0">
-        <TotalsRow totals={totals} />
-        <GapSummary totals={totals} />
-        <SeekersGapPanel region={region} />
-      </TabsContent>
+          <TabsContent value="seekers" className="space-y-6 mt-0">
+            <TotalsRow data={data} />
+            <GapSummary data={data} />
+            <SeekersGapPanel rows={toSeekerGapRows(data.categories)} />
+          </TabsContent>
 
-      <TabsContent value="onboarding" className="space-y-6 mt-0">
-        <OnboardingTab key={region.district} region={region} />
-      </TabsContent>
+          <TabsContent value="onboarding" className="space-y-6 mt-0">
+            <OnboardingTab region={region} />
+          </TabsContent>
+        </>
+      )}
     </Tabs>
   );
 }
 
-function TotalsRow({ totals }: { totals: ReturnType<typeof getEcosystemTotals> }) {
+function TotalsRow({ data }: { data: EcosystemOverviewResult }) {
+  const t = data.totals;
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <MetricCard label="Total seekers" value={totals.totalSeekers} sub="registered in this district" />
-      <MetricCard label="Total service providers" value={totals.totalProviders} sub="active organisations" />
-      <MetricCard label="Total connections" value={totals.totalConnections} sub="seeker ↔ provider links made" />
+      <MetricCard label="Total seekers" value={t.totalSeekers} sub="registered nationwide" />
+      <MetricCard label="Total service providers" value={t.totalProviders} sub="active organisations" />
+      <MetricCard
+        label="Total connections"
+        value={t.totalConnections}
+        sub={`seeker ↔ provider links, ${connectionWindowLabel(t.firstConnection, t.lastConnection)}`}
+      />
     </div>
   );
 }
@@ -196,17 +256,18 @@ function Figure({ value, label, red }: { value: string; label: string; red?: boo
   );
 }
 
-function GapSummary({ totals }: { totals: ReturnType<typeof getEcosystemTotals> }) {
+function GapSummary({ data }: { data: EcosystemOverviewResult }) {
+  const t = data.totals;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <Panel title="Action gap" description="Connections the ecosystem could have initiated.">
         <div className="grid grid-cols-2 gap-4">
           <Figure
-            value={`${fmt(totals.seekersInitiated)} / ${fmt(totals.totalSeekers)}`}
+            value={`${fmt(t.connectedSeekers)} / ${fmt(t.totalSeekers)}`}
             label="Seekers · initiated connections"
           />
           <Figure
-            value={`${fmt(totals.providersInitiated)} / ${fmt(totals.totalProviders)}`}
+            value={`${fmt(t.connectedProviders)} / ${fmt(t.totalProviders)}`}
             label="Providers · initiated connections"
           />
         </div>
@@ -215,13 +276,13 @@ function GapSummary({ totals }: { totals: ReturnType<typeof getEcosystemTotals> 
         <div className="grid grid-cols-2 gap-4">
           <Figure
             red
-            value={fmt(totals.seekerDemandGap)}
-            label="Gap in seeker demand · seekers above current provider capacity"
+            value={fmt(totalSeekerDemandGap(data.categories))}
+            label="Gap in seeker demand · seekers wanting a service with no connection yet"
           />
           <Figure
             red
-            value={fmt(totals.providerSupplyGap)}
-            label="Gap in provider supply · providers needed to meet seeker demand"
+            value="—"
+            label="Gap in provider supply · unavailable: provider capacity is not recorded"
           />
         </div>
       </Panel>
@@ -284,24 +345,18 @@ function GapFilters({
   );
 }
 
-function ProvidersGapPanel({ region }: { region: RegionValue }) {
-  const rows = useMemo(() => getProviderCategories(region), [region]);
+function ProvidersGapPanel({ rows }: { rows: ProviderGapRow[] }) {
   const [cat, setCat] = useState("All");
   const [level, setLevel] = useState("All");
   const [open, setOpen] = useState<string | null>(null);
 
   const enriched = rows.map((r) => {
-    const ag = actionGap(r.matching, r.connections);
-    const ds = demandSupplyGap(r.matching, r.capacity);
-    const agL = gapLevel(ag, r.matching);
-    const dsL = gapLevel(ds, r.matching);
-    return { ...r, ag, ds, agL, dsL, actions: recommendedActions("provider", agL, dsL) };
+    const agL = gapLevel(r.actionGap, r.demand);
+    return { ...r, agL, actions: recommendedActions("provider", agL, "Low") };
   });
 
   const filtered = enriched.filter(
-    (r) =>
-      (cat === "All" || r.category === cat) &&
-      (level === "All" || r.agL === level || r.dsL === level),
+    (r) => (cat === "All" || r.category === cat) && (level === "All" || r.agL === level),
   );
 
   return (
@@ -349,13 +404,13 @@ function ProvidersGapPanel({ region }: { region: RegionValue }) {
               <TableRow key={r.category}>
                 <TableCell className="font-medium">{r.category}</TableCell>
                 <TableCell className="text-right tabular-nums">{fmt(r.providers)}</TableCell>
-                <TableCell className="text-right tabular-nums">{fmt(r.capacity)}</TableCell>
-                <TableCell className="text-right tabular-nums">{fmt(r.matching)}</TableCell>
+                <TableCell className="text-right"><Cell value={r.capacity} /></TableCell>
+                <TableCell className="text-right"><Cell value={r.matching} /></TableCell>
                 <TableCell className="text-right tabular-nums">{fmt(r.connections)}</TableCell>
-                <TableCell className="text-right"><GapNumber value={r.ag} /></TableCell>
+                <TableCell className="text-right"><GapNumber value={r.actionGap} /></TableCell>
                 <TableCell><LevelBadge level={r.agL} /></TableCell>
-                <TableCell className="text-right"><GapNumber value={r.ds} /></TableCell>
-                <TableCell><LevelBadge level={r.dsL} /></TableCell>
+                <TableCell className="text-right"><Cell value={null} red /></TableCell>
+                <TableCell><span className="text-muted-foreground">—</span></TableCell>
                 <TableCell><Actions items={r.actions} /></TableCell>
                 <TableCell>
                   <Button
@@ -381,29 +436,28 @@ function ProvidersGapPanel({ region }: { region: RegionValue }) {
         </Table>
       </div>
 
-      <ProviderDrilldown region={region} category={open} onClose={() => setOpen(null)} />
+      <CategoryDrilldown
+        category={open}
+        count={rows.find((r) => r.category === open)?.providers ?? 0}
+        noun="service provider"
+        onClose={() => setOpen(null)}
+      />
     </Panel>
   );
 }
 
-function SeekersGapPanel({ region }: { region: RegionValue }) {
-  const rows = useMemo(() => getSeekerNeeds(region), [region]);
+function SeekersGapPanel({ rows }: { rows: SeekerGapRow[] }) {
   const [need, setNeed] = useState("All");
   const [level, setLevel] = useState("All");
   const [open, setOpen] = useState<string | null>(null);
 
   const enriched = rows.map((r) => {
-    const ag = actionGap(r.matching, r.connections);
-    const ds = demandSupplyGap(r.matching, r.reach);
-    const agL = gapLevel(ag, r.matching);
-    const dsL = gapLevel(ds, r.matching);
-    return { ...r, ag, ds, agL, dsL, actions: recommendedActions("seeker", agL, dsL) };
+    const agL = gapLevel(r.actionGap, r.demand);
+    return { ...r, agL, actions: recommendedActions("seeker", agL, "Low") };
   });
 
   const filtered = enriched.filter(
-    (r) =>
-      (need === "All" || r.area === need) &&
-      (level === "All" || r.agL === level || r.dsL === level),
+    (r) => (need === "All" || r.area === need) && (level === "All" || r.agL === level),
   );
 
   return (
@@ -434,7 +488,7 @@ function SeekersGapPanel({ region }: { region: RegionValue }) {
               <TableHead className="text-right">Aggregators</TableHead>
               <TableHead className="text-right">
                 Can reach upto
-                <span className="block text-[10px] font-normal text-muted-foreground">count of seekers</span>
+                <span className="block text-[10px] font-normal text-muted-foreground">seekers wanting this</span>
               </TableHead>
               <TableHead className="text-right">Matching providers</TableHead>
               <TableHead className="text-right">Connections</TableHead>
@@ -452,12 +506,12 @@ function SeekersGapPanel({ region }: { region: RegionValue }) {
                 <TableCell className="font-medium">{r.area}</TableCell>
                 <TableCell className="text-right tabular-nums">{fmt(r.aggregators)}</TableCell>
                 <TableCell className="text-right tabular-nums">{fmt(r.reach)}</TableCell>
-                <TableCell className="text-right tabular-nums">{fmt(r.matching)}</TableCell>
+                <TableCell className="text-right"><Cell value={r.matching} /></TableCell>
                 <TableCell className="text-right tabular-nums">{fmt(r.connections)}</TableCell>
-                <TableCell className="text-right"><GapNumber value={r.ag} /></TableCell>
+                <TableCell className="text-right"><GapNumber value={r.actionGap} /></TableCell>
                 <TableCell><LevelBadge level={r.agL} /></TableCell>
-                <TableCell className="text-right"><GapNumber value={r.ds} /></TableCell>
-                <TableCell><LevelBadge level={r.dsL} /></TableCell>
+                <TableCell className="text-right"><Cell value={null} red /></TableCell>
+                <TableCell><span className="text-muted-foreground">—</span></TableCell>
                 <TableCell><Actions items={r.actions} /></TableCell>
                 <TableCell>
                   <Button
@@ -483,140 +537,41 @@ function SeekersGapPanel({ region }: { region: RegionValue }) {
         </Table>
       </div>
 
-      <SeekerDrilldown region={region} area={open} onClose={() => setOpen(null)} />
+      <CategoryDrilldown
+        category={open}
+        count={rows.find((r) => r.area === open)?.aggregators ?? 0}
+        noun="aggregator"
+        onClose={() => setOpen(null)}
+      />
     </Panel>
   );
 }
 
-const contactCls = "font-mono text-xs text-muted-foreground";
-
-function ProviderDrilldown({
-  region,
+/** The live RPCs publish category totals only — no organisation-level rows yet. */
+function CategoryDrilldown({
   category,
+  count,
+  noun,
   onClose,
 }: {
-  region: RegionValue;
   category: string | null;
+  count: number;
+  noun: "service provider" | "aggregator";
   onClose: () => void;
 }) {
-  const orgs = category ? getProvidersForCategory(region, category) : [];
   return (
     <Dialog open={!!category} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>{category}</DialogTitle>
           <DialogDescription>
-            {orgs.length} service provider{orgs.length === 1 ? "" : "s"} in this category.
+            {count} {noun}
+            {count === 1 ? "" : "s"} in this category.
           </DialogDescription>
         </DialogHeader>
-        <div className="max-h-[65vh] overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Organisation</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead className="text-right">Can service upto</TableHead>
-                <TableHead className="text-right">Matching</TableHead>
-                <TableHead className="text-right">Connections</TableHead>
-                <TableHead className="text-right">Action gap</TableHead>
-                <TableHead>Action level</TableHead>
-                <TableHead className="text-right">D-S gap</TableHead>
-                <TableHead>D-S level</TableHead>
-                <TableHead>Recommended actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {orgs.map((o) => {
-                const ag = actionGap(o.matching, o.connections);
-                const ds = demandSupplyGap(o.matching, o.capacity);
-                const agL = gapLevel(ag, o.matching);
-                const dsL = gapLevel(ds, o.matching);
-                return (
-                  <TableRow key={o.org}>
-                    <TableCell className="font-medium">{o.org}</TableCell>
-                    <TableCell className={contactCls}>{o.email}</TableCell>
-                    <TableCell className={contactCls}>{o.phone}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(o.capacity)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(o.matching)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(o.connections)}</TableCell>
-                    <TableCell className="text-right"><GapNumber value={ag} /></TableCell>
-                    <TableCell><LevelBadge level={agL} /></TableCell>
-                    <TableCell className="text-right"><GapNumber value={ds} /></TableCell>
-                    <TableCell><LevelBadge level={dsL} /></TableCell>
-                    <TableCell><Actions items={recommendedActions("provider", agL, dsL)} /></TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function SeekerDrilldown({
-  region,
-  area,
-  onClose,
-}: {
-  region: RegionValue;
-  area: string | null;
-  onClose: () => void;
-}) {
-  const orgs = area ? getAggregatorsForNeed(region, area) : [];
-  return (
-    <Dialog open={!!area} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-5xl">
-        <DialogHeader>
-          <DialogTitle>{area}</DialogTitle>
-          <DialogDescription>
-            {orgs.length} aggregator{orgs.length === 1 ? "" : "s"} reaching seekers in this need area.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="max-h-[65vh] overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Organisation</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead className="text-right">Can reach upto</TableHead>
-                <TableHead className="text-right">Matching</TableHead>
-                <TableHead className="text-right">Connections</TableHead>
-                <TableHead className="text-right">Action gap</TableHead>
-                <TableHead>Action level</TableHead>
-                <TableHead className="text-right">D-S gap</TableHead>
-                <TableHead>D-S level</TableHead>
-                <TableHead>Recommended actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {orgs.map((o) => {
-                const ag = actionGap(o.matching, o.connections);
-                const ds = demandSupplyGap(o.matching, o.reach);
-                const agL = gapLevel(ag, o.matching);
-                const dsL = gapLevel(ds, o.matching);
-                return (
-                  <TableRow key={o.org}>
-                    <TableCell className="font-medium">{o.org}</TableCell>
-                    <TableCell className={contactCls}>{o.email}</TableCell>
-                    <TableCell className={contactCls}>{o.phone}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(o.reach)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(o.matching)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(o.connections)}</TableCell>
-                    <TableCell className="text-right"><GapNumber value={ag} /></TableCell>
-                    <TableCell><LevelBadge level={agL} /></TableCell>
-                    <TableCell className="text-right"><GapNumber value={ds} /></TableCell>
-                    <TableCell><LevelBadge level={dsL} /></TableCell>
-                    <TableCell><Actions items={recommendedActions("seeker", agL, dsL)} /></TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          Organisation-level detail is not available from the live data yet — only category totals are published.
+        </p>
       </DialogContent>
     </Dialog>
   );

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   AlertTriangle,
   BadgeCheck,
@@ -38,14 +38,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  getFlaggedProfiles,
-  getOnboardingHealth,
-  getRegistrationLinks,
-  type FlaggedProfile,
-  type RegistrationLink,
-} from "@/lib/ecosystem-data";
+import type { FlaggedProfile, RegistrationLink } from "@/lib/ecosystem-data";
 import type { RegionValue } from "@/components/ecosystem/RegionSelector";
+
+// No live source exists for registration links or flagged profiles, so these
+// are honest empty states — no fabricated rows.
+const NO_LINKS: RegistrationLink[] = [];
+const NO_FLAGS: FlaggedProfile[] = [];
+const NO_LINK_HEALTH = { totalRegistered: 0, verified: 0, unverified: 0 };
 
 const slugify = (s: string) =>
   s
@@ -59,11 +59,11 @@ const Req = () => <span className="text-red-600 dark:text-red-400"> *</span>;
 export function OnboardingTab({ region }: { region: RegionValue }) {
   return (
     <div className="space-y-6">
-      <HealthRow region={region} />
+      <HealthRow />
       <AddParticipants />
       <ShareLink region={region} />
-      <YourLinks region={region} />
-      <FlaggedSection region={region} />
+      <YourLinks />
+      <FlaggedSection />
     </div>
   );
 }
@@ -101,8 +101,9 @@ function HealthCard({
   );
 }
 
-function HealthRow({ region }: { region: RegionValue }) {
-  const health = useMemo(() => getOnboardingHealth(region), [region]);
+function HealthRow() {
+  // "Registered via your links" — with no registration links recorded, this is honestly zero.
+  const health = NO_LINK_HEALTH;
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <HealthCard
@@ -428,8 +429,8 @@ function ShareLink({ region }: { region: RegionValue }) {
 
 /* 4. Your registration links */
 
-function YourLinks({ region }: { region: RegionValue }) {
-  const [links, setLinks] = useState<RegistrationLink[]>(() => getRegistrationLinks(region));
+function YourLinks() {
+  const [links, setLinks] = useState<RegistrationLink[]>(NO_LINKS);
   const [tab, setTab] = useState<"Seeker" | "Provider">("Seeker");
 
   const shown = links.filter((l) => l.domain === tab);
@@ -563,8 +564,8 @@ function fieldFromIssue(issue: string): string {
   return m ? m[1].trim() : "Field";
 }
 
-function FlaggedSection({ region }: { region: RegionValue }) {
-  const profiles = useMemo(() => getFlaggedProfiles(region), [region]);
+function FlaggedSection() {
+  const profiles = NO_FLAGS;
   const [fixing, setFixing] = useState<FlaggedProfile | null>(null);
   const [value, setValue] = useState("");
 
@@ -608,6 +609,13 @@ function FlaggedSection({ region }: { region: RegionValue }) {
                 </TableCell>
               </TableRow>
             ))}
+            {profiles.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  No flagged profiles — nothing is waiting for correction.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
@@ -631,6 +639,11 @@ function FlaggedSection({ region }: { region: RegionValue }) {
             </div>
           </div>
         ))}
+        {profiles.length === 0 && (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No flagged profiles — nothing is waiting for correction.
+          </p>
+        )}
       </div>
 
       <Sheet open={!!fixing} onOpenChange={(o) => !o && setFixing(null)}>

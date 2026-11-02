@@ -9,9 +9,19 @@ export interface RegionValue {
 
 export const NATIONAL_REGION: RegionValue = { state: "", district: ALL_DISTRICTS };
 
-export function RegionSelector({ value, onChange }: { value: RegionValue; onChange: (v: RegionValue) => void }) {
+export function RegionSelector({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: RegionValue;
+  onChange: (v: RegionValue) => void;
+  /** Live data has no location field yet, so the selector ships disabled. */
+  disabled?: boolean;
+}) {
   return (
     <Select
+      disabled={disabled}
       value={value.district}
       onValueChange={(d) => {
         const entry = DISTRICT_LIST.find((x) => x.name === d);
