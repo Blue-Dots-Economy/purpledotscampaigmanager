@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { ENABLE_CAMPAIGN_DISTRICT_SCOPING } from "./campaign-district-scope";
 
 // Auth + reviewer tables live wherever auth lives. Use the flag-based selector so that
 // today (cutover off) everything runs on the CURRENT project exactly as before, and at
@@ -26,7 +25,8 @@ export const resolveLogin = createServerFn({ method: "POST" })
       }
       const row = (Array.isArray(rows) ? rows[0] : rows) as Record<string, string> | undefined;
       if (row?.role) {
-        if (ENABLE_CAMPAIGN_DISTRICT_SCOPING) {
+        // Real participant views also require this verified identity, independent of campaign scoping.
+        {
           const { establishCampaignSession } = await import("./campaign-session.server");
           await establishCampaignSession(process.env["CAMPAIGN_SESSION_SECRET"], email);
         }
@@ -51,7 +51,7 @@ export const resolveLogin = createServerFn({ method: "POST" })
         return { role: null, fault: true };
       }
       if (r) {
-        if (ENABLE_CAMPAIGN_DISTRICT_SCOPING) {
+        {
           const { establishCampaignSession } = await import("./campaign-session.server");
           await establishCampaignSession(process.env["CAMPAIGN_SESSION_SECRET"], email);
         }
