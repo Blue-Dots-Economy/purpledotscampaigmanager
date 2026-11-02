@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import logoAsset from "@/assets/purple-dots-logo.png.asset.json";
 import logoDarkAsset from "@/assets/purple-dots-logo-dark.png.asset.json";
 import { Input } from "@/components/ui/input";
@@ -11,15 +11,14 @@ import { useTheme, resolveDark } from "@/lib/theme";
 
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (search: Record<string, unknown>): { reason?: "session-refresh" } =>
-    search.reason === "session-refresh" ? { reason: "session-refresh" } : {},
   component: LoginPage,
 });
 
 function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const { reason } = Route.useSearch();
+  const [reason, setReason] = useState<string | null>(null);
+  useEffect(() => { setReason(new URLSearchParams(window.location.search).get("reason")); }, []);
   const { theme } = useTheme();
   const isDark = resolveDark(theme);
   const [email, setEmail] = useState("");

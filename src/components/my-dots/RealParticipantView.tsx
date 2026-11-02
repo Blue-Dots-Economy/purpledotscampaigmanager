@@ -1,4 +1,4 @@
-import { Component, Suspense, useEffect, type ReactNode, useState } from "react";
+import { Component, Suspense, type ReactNode, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Archive, FileText, RefreshCw, CheckCircle2, Users } from "lucide-react";
@@ -25,9 +25,12 @@ class ParticipantErrorBoundary extends Component<{ children: ReactNode; onRetry:
 }
 
 function SessionRefreshRedirect() {
+  const { logout } = useAuth();
   const navigate = useNavigate();
-  useEffect(() => { void navigate({ to: "/login", search: { reason: "session-refresh" } }); }, [navigate]);
-  return <p role="status" className="py-16 text-center text-sm text-muted-foreground">Your sign-in needs to be refreshed — taking you to the sign-in page…</p>;
+  return <div role="alert" className="py-16 text-center space-y-3">
+    <p className="text-sm text-muted-foreground">Live participant data needs a fresh sign-in after the latest update. Sign out and sign in again to continue — your work is unaffected.</p>
+    <Button variant="outline" size="sm" onClick={() => { logout(); void navigate({ to: "/login", replace: true }); }}>Sign out</Button>
+  </div>;
 }
 
 export function RealParticipantView() {
