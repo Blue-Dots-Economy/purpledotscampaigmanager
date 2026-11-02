@@ -49,6 +49,12 @@ export function RealParticipantView() {
 function formatDate(value: string) { return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }); }
 function ParticipantDashboard({ actor, domain }: { actor: string; domain: ParticipantDomain }) {
   const { data, refetch, isFetching } = useParticipantRollup(actor, domain);
+  return <ParticipantDashboardBody data={data} domain={domain} isFetching={isFetching} onRefresh={() => void refetch()} />;
+}
+export type ParticipantRollupData = ReturnType<typeof useParticipantRollup>["data"];
+/** Presentational body; takes data so it can be rendered without the live query. */
+export function ParticipantDashboardBody({ data, domain, isFetching, onRefresh }: { data: ParticipantRollupData; domain: ParticipantDomain; isFetching: boolean; onRefresh: () => void }) {
+  const refetch = onRefresh;
   const [sortKey, setSortKey] = useState<"total" | "draft" | "avgCompletion">("total");
   const [direction, setDirection] = useState<1 | -1>(-1);
   const stale = isParticipantLoadStale(data.loadedAt);
