@@ -8,7 +8,11 @@ export function campaignSession(password: string | undefined) {
     name: "purple_campaign_session",
     password,
     maxAge: 60 * 60 * 24 * 7,
-    cookie: { httpOnly: true, sameSite: "lax", secure: new URL(getRequest().url).protocol === "https:", path: "/" },
+    // The editor preview runs in a cross-site iframe, where Lax cookies are never sent back.
+    // On HTTPS use SameSite=None + Partitioned (CHIPS) so the verified session survives there.
+    cookie: new URL(getRequest().url).protocol === "https:"
+      ? { httpOnly: true, sameSite: "none", secure: true, partitioned: true, path: "/" }
+      : { httpOnly: true, sameSite: "lax", secure: false, path: "/" },
   });
 }
 
