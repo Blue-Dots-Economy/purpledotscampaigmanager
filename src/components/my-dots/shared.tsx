@@ -92,18 +92,18 @@ export function useSort(initial: SortKey = "activityScore") {
   return { sortKey, sortDir, toggleSort };
 }
 
-export function SortBtn({
+export function SortBtn<K extends string = SortKey>({
   k,
   children,
   title,
   sortKey,
   onToggle,
 }: {
-  k: SortKey;
+  k: K;
   children: React.ReactNode;
   title?: string;
-  sortKey: SortKey;
-  onToggle: (k: SortKey) => void;
+  sortKey: K;
+  onToggle: (k: K) => void;
 }) {
   return (
     <button
@@ -163,13 +163,13 @@ export function activityBarClass(score: number) {
   return "bg-rose-500";
 }
 
-export function ActivityCell({ score }: { score: number }) {
+export function ActivityCell({ score, suffix = "" }: { score: number; suffix?: string }) {
   return (
     <div className="flex items-center justify-end gap-2">
       <div className="h-1.5 w-20 rounded-full bg-muted overflow-hidden">
         <div className={`h-full ${activityBarClass(score)}`} style={{ width: `${Math.min(100, score)}%` }} />
       </div>
-      <span className="tabular-nums w-7 text-right font-medium">{score}</span>
+      <span className={`tabular-nums text-right font-medium ${suffix ? "w-10" : "w-7"}`}>{score}{suffix}</span>
     </div>
   );
 }
@@ -232,18 +232,26 @@ export function HeaderBand({
   sentence,
   refreshing,
   onRefresh,
+  chips = <SampleChip />,
+  children,
 }: {
   badge: string;
   type: ParticipantType;
-  period: Period;
-  setPeriod: (p: Period) => void;
+  /** Omit both to hide the period selector (e.g. when the server fixes the window). */
+  period?: Period;
+  setPeriod?: (p: Period) => void;
+  /** Source markers beside the badge; defaults to the sample-data chip. */
+  chips?: React.ReactNode;
+  /** Extra full-width lines under the band (data window, load date, warnings). */
+  children?: React.ReactNode;
   total: number;
   sentence: string;
   refreshing: boolean;
   onRefresh: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5 flex flex-wrap items-center gap-4">
+    <div className="rounded-xl border border-border bg-card p-5">
+    <div className="flex flex-wrap items-center gap-4">
       <div className="h-12 w-12 rounded-xl bg-brand-soft flex items-center justify-center text-brand">
         <Users className="h-6 w-6" />
       </div>
@@ -251,26 +259,28 @@ export function HeaderBand({
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{eyebrowFor(type)}</span>
           <Badge variant="secondary">{badge}</Badge>
-          <SampleChip />
+          {chips}
         </div>
         <div className="text-2xl font-bold tabular-nums">{total.toLocaleString()}</div>
       </div>
       <div className="hidden sm:block h-10 w-px bg-border" />
       <p className="text-sm text-muted-foreground flex-1 min-w-[200px]">{sentence}</p>
       <div className="flex items-center gap-2 ml-auto">
-        <Select value={String(period)} onValueChange={(v) => setPeriod(Number(v) as Period)}>
+        {period !== undefined && setPeriod && <Select value={String(period)} onValueChange={(v) => setPeriod(Number(v) as Period)}>
           <SelectTrigger className="h-9 w-[120px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="7">This week</SelectItem>
             <SelectItem value="30">30 days</SelectItem>
             <SelectItem value="90">90 days</SelectItem>
           </SelectContent>
-        </Select>
+        </Select>}
         <Button variant="outline" className="gap-2" onClick={onRefresh} disabled={refreshing}>
           <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
+    </div>
+    {children && <div className="mt-4 border-t border-border pt-3 space-y-1">{children}</div>}
     </div>
   );
 }
