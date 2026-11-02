@@ -54,7 +54,7 @@ function LoginPage() {
         </div>
 
         {reason === "session-refresh" && (
-          <p role="status" className="mt-4 rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+          <p role="status" className="mt-4 text-xs text-muted-foreground">
             Live participant data needs a fresh sign-in after the latest update. Sign in again to continue — your work is unaffected.
           </p>
         )}
