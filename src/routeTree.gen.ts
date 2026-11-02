@@ -17,9 +17,9 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ReviewRouteImport } from './routes/review'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as UserLevelAnalysisRouteImport } from './routes/user-level-analysis'
-import { Route as ZzDesignPreviewRouteImport } from './routes/zz-design-preview'
 import { Route as CampaignsCampaignRouteImport } from './routes/campaigns_.$campaign'
 import { Route as ReviewCallIdRouteImport } from './routes/review_.$callId'
+import { Route as UserLevelAnalysisZzDesignPreviewRouteImport } from './routes/user-level-analysis_.zz-design-preview'
 import { Route as ApiPublicHooksSyncSnapshotsRouteImport } from './routes/api/public/hooks/sync-snapshots'
 
 const IndexRoute = IndexRouteImport.update({
@@ -62,11 +62,6 @@ const UserLevelAnalysisRoute = UserLevelAnalysisRouteImport.update({
   path: '/user-level-analysis',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ZzDesignPreviewRoute = ZzDesignPreviewRouteImport.update({
-  id: '/zz-design-preview',
-  path: '/zz-design-preview',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CampaignsCampaignRoute = CampaignsCampaignRouteImport.update({
   id: '/campaigns_/$campaign',
   path: '/campaigns/$campaign',
@@ -77,6 +72,12 @@ const ReviewCallIdRoute = ReviewCallIdRouteImport.update({
   path: '/review/$callId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UserLevelAnalysisZzDesignPreviewRoute =
+  UserLevelAnalysisZzDesignPreviewRouteImport.update({
+    id: '/user-level-analysis_/zz-design-preview',
+    path: '/user-level-analysis/zz-design-preview',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksSyncSnapshotsRoute =
   ApiPublicHooksSyncSnapshotsRouteImport.update({
     id: '/api/public/hooks/sync-snapshots',
@@ -93,9 +94,9 @@ export interface FileRoutesByFullPath {
   '/review': typeof ReviewRoute
   '/settings': typeof SettingsRoute
   '/user-level-analysis': typeof UserLevelAnalysisRoute
-  '/zz-design-preview': typeof ZzDesignPreviewRoute
   '/campaigns/$campaign': typeof CampaignsCampaignRoute
   '/review/$callId': typeof ReviewCallIdRoute
+  '/user-level-analysis/zz-design-preview': typeof UserLevelAnalysisZzDesignPreviewRoute
   '/api/public/hooks/sync-snapshots': typeof ApiPublicHooksSyncSnapshotsRoute
 }
 export interface FileRoutesByTo {
@@ -107,9 +108,9 @@ export interface FileRoutesByTo {
   '/review': typeof ReviewRoute
   '/settings': typeof SettingsRoute
   '/user-level-analysis': typeof UserLevelAnalysisRoute
-  '/zz-design-preview': typeof ZzDesignPreviewRoute
   '/campaigns/$campaign': typeof CampaignsCampaignRoute
   '/review/$callId': typeof ReviewCallIdRoute
+  '/user-level-analysis/zz-design-preview': typeof UserLevelAnalysisZzDesignPreviewRoute
   '/api/public/hooks/sync-snapshots': typeof ApiPublicHooksSyncSnapshotsRoute
 }
 export interface FileRoutesById {
@@ -122,9 +123,9 @@ export interface FileRoutesById {
   '/review': typeof ReviewRoute
   '/settings': typeof SettingsRoute
   '/user-level-analysis': typeof UserLevelAnalysisRoute
-  '/zz-design-preview': typeof ZzDesignPreviewRoute
   '/campaigns_/$campaign': typeof CampaignsCampaignRoute
   '/review_/$callId': typeof ReviewCallIdRoute
+  '/user-level-analysis_/zz-design-preview': typeof UserLevelAnalysisZzDesignPreviewRoute
   '/api/public/hooks/sync-snapshots': typeof ApiPublicHooksSyncSnapshotsRoute
 }
 export interface FileRouteTypes {
@@ -138,9 +139,9 @@ export interface FileRouteTypes {
     | '/review'
     | '/settings'
     | '/user-level-analysis'
-    | '/zz-design-preview'
     | '/campaigns/$campaign'
     | '/review/$callId'
+    | '/user-level-analysis/zz-design-preview'
     | '/api/public/hooks/sync-snapshots'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -152,9 +153,9 @@ export interface FileRouteTypes {
     | '/review'
     | '/settings'
     | '/user-level-analysis'
-    | '/zz-design-preview'
     | '/campaigns/$campaign'
     | '/review/$callId'
+    | '/user-level-analysis/zz-design-preview'
     | '/api/public/hooks/sync-snapshots'
   id:
     | '__root__'
@@ -166,9 +167,9 @@ export interface FileRouteTypes {
     | '/review'
     | '/settings'
     | '/user-level-analysis'
-    | '/zz-design-preview'
     | '/campaigns_/$campaign'
     | '/review_/$callId'
+    | '/user-level-analysis_/zz-design-preview'
     | '/api/public/hooks/sync-snapshots'
   fileRoutesById: FileRoutesById
 }
@@ -181,9 +182,9 @@ export interface RootRouteChildren {
   ReviewRoute: typeof ReviewRoute
   SettingsRoute: typeof SettingsRoute
   UserLevelAnalysisRoute: typeof UserLevelAnalysisRoute
-  ZzDesignPreviewRoute: typeof ZzDesignPreviewRoute
   CampaignsCampaignRoute: typeof CampaignsCampaignRoute
   ReviewCallIdRoute: typeof ReviewCallIdRoute
+  UserLevelAnalysisZzDesignPreviewRoute: typeof UserLevelAnalysisZzDesignPreviewRoute
   ApiPublicHooksSyncSnapshotsRoute: typeof ApiPublicHooksSyncSnapshotsRoute
 }
 
@@ -245,13 +246,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UserLevelAnalysisRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/zz-design-preview': {
-      id: '/zz-design-preview'
-      path: '/zz-design-preview'
-      fullPath: '/zz-design-preview'
-      preLoaderRoute: typeof ZzDesignPreviewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/campaigns_/$campaign': {
       id: '/campaigns_/$campaign'
       path: '/campaigns/$campaign'
@@ -264,6 +258,13 @@ declare module '@tanstack/react-router' {
       path: '/review/$callId'
       fullPath: '/review/$callId'
       preLoaderRoute: typeof ReviewCallIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/user-level-analysis_/zz-design-preview': {
+      id: '/user-level-analysis_/zz-design-preview'
+      path: '/user-level-analysis/zz-design-preview'
+      fullPath: '/user-level-analysis/zz-design-preview'
+      preLoaderRoute: typeof UserLevelAnalysisZzDesignPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/sync-snapshots': {
@@ -285,9 +286,9 @@ const rootRouteChildren: RootRouteChildren = {
   ReviewRoute: ReviewRoute,
   SettingsRoute: SettingsRoute,
   UserLevelAnalysisRoute: UserLevelAnalysisRoute,
-  ZzDesignPreviewRoute: ZzDesignPreviewRoute,
   CampaignsCampaignRoute: CampaignsCampaignRoute,
   ReviewCallIdRoute: ReviewCallIdRoute,
+  UserLevelAnalysisZzDesignPreviewRoute: UserLevelAnalysisZzDesignPreviewRoute,
   ApiPublicHooksSyncSnapshotsRoute: ApiPublicHooksSyncSnapshotsRoute,
 }
 export const routeTree = rootRouteImport
