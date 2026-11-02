@@ -488,9 +488,7 @@ function SeekersGapPanel({ rows }: { rows: SeekerGapRow[] }) {
               <TableHead className="text-right">Aggregators</TableHead>
               <TableHead className="text-right">
                 Can reach upto
-                <span className="block text-[10px] font-normal text-muted-foreground">
-                  seekers wanting this · multiple needs counted in each
-                </span>
+                <span className="block text-[10px] font-normal text-muted-foreground">seekers wanting this</span>
               </TableHead>
               <TableHead className="text-right">Matching providers</TableHead>
               <TableHead className="text-right">Connections</TableHead>
