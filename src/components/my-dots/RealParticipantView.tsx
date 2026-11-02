@@ -1,10 +1,11 @@
-import { Component, Suspense, type ReactNode, useState } from "react";
+import { Component, Suspense, useEffect, type ReactNode, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Archive, FileText, RefreshCw, CheckCircle2, Users } from "lucide-react";
 import { useAuth } from "@/auth/context";
 import { useProgram } from "@/programs/context";
 import { useParticipantRollup } from "@/hooks/useParticipantRollup";
-import { isParticipantLoadStale, loadAgeDays, type ParticipantDomain } from "@/lib/participant-rollup";
+import { PARTICIPANT_SESSION_EXPIRED, isParticipantLoadStale, loadAgeDays, type ParticipantDomain } from "@/lib/participant-rollup";
 import { LoadingState, QueryErrorState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,9 +16,18 @@ class ParticipantErrorBoundary extends Component<{ children: ReactNode; onRetry:
   state: { error: Error | null } = { error: null };
   static getDerivedStateFromError(error: Error) { return { error }; }
   render() {
-    if (this.state.error) return <QueryErrorState error={{ message: this.state.error.message, code: "PARTICIPANT_LOAD_FAILED" }} onRetry={() => { void this.props.onRetry().then(() => this.setState({ error: null })); }} />;
-    return this.props.children;
+    if (!this.state.error) return this.props.children;
+    // Session-expired errors can never be fixed by retrying — only a fresh sign-in
+    // re-establishes the verified server session. Redirect instead of a dead Retry.
+    if (this.state.error.message.startsWith(PARTICIPANT_SESSION_EXPIRED)) return <SessionRefreshRedirect />;
+    return <QueryErrorState error={{ message: this.state.error.message, code: "PARTICIPANT_LOAD_FAILED" }} onRetry={() => { void this.props.onRetry().then(() => this.setState({ error: null })); }} />;
   }
+}
+
+function SessionRefreshRedirect() {
+  const navigate = useNavigate();
+  useEffect(() => { void navigate({ to: "/login", search: { reason: "session-refresh" } }); }, [navigate]);
+  return <p role="status" className="py-16 text-center text-sm text-muted-foreground">Your sign-in needs to be refreshed — taking you to the sign-in page…</p>;
 }
 
 export function RealParticipantView() {
