@@ -8,9 +8,10 @@ export const fetchParticipantRollup = createServerFn({ method: "GET" })
   })
   .handler(async ({ data }) => {
     try {
-      const { campaignSession } = await import("./campaign-session.server");
-      const session = await campaignSession(process.env["CAMPAIGN_SESSION_SECRET"]);
-      const email = session.data.email;
+      const { resolveRequestIdentity } = await import("./campaign-session.server");
+      const identity = await resolveRequestIdentity(process.env["CAMPAIGN_SESSION_SECRET"]);
+      console.info("[participant-rollup] identity path", { path: identity.path });
+      const email = identity.email;
       if (!email) throw new Error(`${PARTICIPANT_SESSION_EXPIRED}: Participant access could not be verified. Please sign in again.`);
       const { sbFor, sbForAuth, activeSource } = await import("./db.server");
       if (activeSource() !== "purple") throw new Error("The live Purple participant database is unavailable. No sample or empty data has been substituted.");

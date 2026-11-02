@@ -1,6 +1,44 @@
 import { useSession, getRequest } from "@tanstack/react-start/server";
 import { sbForAuth } from "./db.server";
 import { resolveCampaignDistrictScope, type CampaignDistrictScope } from "./campaign-district-scope";
+import { isPreviewHost } from "./preview-host";
+
+export type IdentityPath = "verified" | "preview-fallback" | "none";
+
+function readOrdinarySessionEmail(request: Request): string | null {
+  const cookie = request.headers.get("cookie") ?? "";
+  const raw = cookie.split("; ").find((c) => c.startsWith("rozgar_auth="));
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(decodeURIComponent(raw.slice("rozgar_auth=".length)));
+    return typeof parsed?.email === "string" && parsed.email ? parsed.email : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve the signed-in identity. The verified campaign session is always
+ * preferred. The Lovable preview gateway never returns the app's sealed cookie,
+ * so on a positively recognised preview host only, fall back to the ordinary
+ * (client-readable) session cookie — role, active status and scoping are still
+ * re-read server-side from app_users afterwards, never trusted from the cookie.
+ * Every unrecognised host takes the strict path.
+ */
+export async function resolveRequestIdentity(password: string | undefined): Promise<{ email: string | null; path: IdentityPath }> {
+  try {
+    const session = await campaignSession(password);
+    if (session.data.email) return { email: session.data.email, path: "verified" };
+  } catch {
+    // No usable verified session; the preview fallback below may still apply.
+  }
+  const hostname = new URL(getRequest().url).hostname.toLowerCase();
+  if (isPreviewHost(hostname)) {
+    const email = readOrdinarySessionEmail(getRequest());
+    if (email) return { email, path: "preview-fallback" };
+  }
+  return { email: null, path: "none" };
+}
 
 export function campaignSession(password: string | undefined) {
   if (!password || password.length < 32) throw new Error("Campaign session configuration is unavailable.");
