@@ -8,6 +8,17 @@ async function sb() {
   return sbForAuth();
 }
 
+// A verified-session failure must never block sign-in; it is logged and only the
+// participant view (which requires it) shows an error.
+async function establishSessionSafely(email: string) {
+  try {
+    const { establishCampaignSession } = await import("./campaign-session.server");
+    await establishCampaignSession(process.env["CAMPAIGN_SESSION_SECRET"], email);
+  } catch (e) {
+    console.error("[auth] establishCampaignSession failed:", e instanceof Error ? e.message : String(e));
+  }
+}
+
 export const resolveLogin = createServerFn({ method: "POST" })
   .inputValidator((d: { email: string; password?: string }) => d)
   .handler(async ({ data }): Promise<{ role: "admin" | "user" | "ecosystem" | "jfc" | "wc" | "owner" | "coordinator" | "network_admin" | null; name?: string | null; district?: string | null; program?: string | null; node_type?: string | null; node_name?: string | null; fault?: boolean }> => {
@@ -26,10 +37,7 @@ export const resolveLogin = createServerFn({ method: "POST" })
       const row = (Array.isArray(rows) ? rows[0] : rows) as Record<string, string> | undefined;
       if (row?.role) {
         // Real participant views also require this verified identity, independent of campaign scoping.
-        {
-          const { establishCampaignSession } = await import("./campaign-session.server");
-          await establishCampaignSession(process.env["CAMPAIGN_SESSION_SECRET"], email);
-        }
+        await establishSessionSafely(email);
         return {
           role: row.role as "admin" | "user" | "ecosystem" | "jfc" | "wc" | "owner" | "coordinator" | "network_admin",
           name: row.name ?? null,
@@ -51,10 +59,7 @@ export const resolveLogin = createServerFn({ method: "POST" })
         return { role: null, fault: true };
       }
       if (r) {
-        {
-          const { establishCampaignSession } = await import("./campaign-session.server");
-          await establishCampaignSession(process.env["CAMPAIGN_SESSION_SECRET"], email);
-        }
+        await establishSessionSafely(email);
         return { role: "user" };
       }
     } catch (e) {
