@@ -100,8 +100,7 @@ export function OrgTable({ orgs: input, title = "By organisation" }: { orgs: Org
                 })}
               </TableBody>
             </Table>
-          </div>
-        </div>
+        </TableShell>
 
         <Dialog open={!!drill} onOpenChange={(v) => !v && setDrill(null)}>
           <DialogContent className="max-w-2xl">
