@@ -1,6 +1,11 @@
 import type { StatusCounts } from "./my-dots-region";
 
 export type ParticipantDomain = "seeker" | "provider";
+/** Error code prefix: the verified server session is missing/expired. Only a fresh
+ *  sign-in can fix this — the UI must redirect to /login, never offer a retry.
+ *  (Self-healing from the client-writable rozgar_auth cookie was rejected: any
+ *  browser could claim any email and inherit that account's organisation.) */
+export const PARTICIPANT_SESSION_EXPIRED = "SESSION_REFRESH_REQUIRED";
 export type ParticipantRollupRow = {
   org_name: string; domain: ParticipantDomain; total: number;
   new_count: number; active_count: number; at_risk_count: number; inactive_count: number;
