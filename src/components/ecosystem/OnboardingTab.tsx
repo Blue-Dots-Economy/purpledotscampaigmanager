@@ -38,14 +38,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  getFlaggedProfiles,
-  getOnboardingHealth,
-  getRegistrationLinks,
-  type FlaggedProfile,
-  type RegistrationLink,
-} from "@/lib/ecosystem-data";
+import type { FlaggedProfile, RegistrationLink } from "@/lib/ecosystem-data";
 import type { RegionValue } from "@/components/ecosystem/RegionSelector";
+
+// No live source exists for registration links or flagged profiles, so these
+// are honest empty states — no fabricated rows.
+const NO_LINKS: RegistrationLink[] = [];
+const NO_FLAGS: FlaggedProfile[] = [];
+const NO_LINK_HEALTH = { totalRegistered: 0, verified: 0, unverified: 0 };
 
 const slugify = (s: string) =>
   s
@@ -101,8 +101,9 @@ function HealthCard({
   );
 }
 
-function HealthRow({ region }: { region: RegionValue }) {
-  const health = useMemo(() => getOnboardingHealth(region), [region]);
+function HealthRow() {
+  // "Registered via your links" — with no registration links recorded, this is honestly zero.
+  const health = NO_LINK_HEALTH;
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <HealthCard
@@ -428,8 +429,8 @@ function ShareLink({ region }: { region: RegionValue }) {
 
 /* 4. Your registration links */
 
-function YourLinks({ region }: { region: RegionValue }) {
-  const [links, setLinks] = useState<RegistrationLink[]>(() => getRegistrationLinks(region));
+function YourLinks() {
+  const [links, setLinks] = useState<RegistrationLink[]>(NO_LINKS);
   const [tab, setTab] = useState<"Seeker" | "Provider">("Seeker");
 
   const shown = links.filter((l) => l.domain === tab);
