@@ -67,9 +67,7 @@ import {
 } from "@/lib/upSeekersCsv";
 import { useProgram } from "@/programs/context";
 import { useAuth } from "@/auth/context";
-import { RegionRollupView } from "@/components/my-dots/RegionRollupView";
-import { NationalRollupView } from "@/components/my-dots/NationalRollupView";
-import { OwnerRollupView } from "@/components/my-dots/OwnerRollupView";
+import { RealParticipantView } from "@/components/my-dots/RealParticipantView";
 import { CoordinatorRollupView } from "@/components/my-dots/CoordinatorRollupView";
 import { getScopeForActor } from "@/lib/my-dots-region";
 import { useRouterState } from "@tanstack/react-router";
@@ -277,8 +275,7 @@ function MetricTile({
   );
 }
 
-// Persona views: owner → own organisation, coordinator → own caseload,
-// admin/ecosystem/network_admin → national, wc → district. Admin may preview with ?persona=owner|coordinator|national|wc.
+// Live organisation views are independent of the coordinator's explicitly labelled sample view.
 // Every other role keeps the roster below.
 function MyPurpleDotsRoute() {
   const { session } = useAuth();
@@ -289,17 +286,11 @@ function MyPurpleDotsRoute() {
     (search?.persona === "owner" || search?.persona === "coordinator" || search?.persona === "national" || search?.persona === "wc")
       ? search.persona
       : role;
-  if (persona === "owner" || persona === "coordinator") {
-    const scope = getScopeForActor(persona, session?.email);
-    if (scope.kind === "org") return <OwnerRollupView scope={scope} />;
+  if (persona === "coordinator") {
+    const scope = getScopeForActor("coordinator", session?.email);
     if (scope.kind === "coordinator") return <CoordinatorRollupView scope={scope} />;
   }
-  if (persona === "national" || persona === "network_admin") return <NationalRollupView />;
-  if (persona === "admin" || persona === "ecosystem") {
-    if (getScopeForActor(persona, session?.email).kind === "national") return <NationalRollupView />;
-    return <RegionRollupView />;
-  }
-  if (persona === "wc") return <RegionRollupView />;
+  if (["owner", "national", "network_admin", "admin", "ecosystem", "wc", "jfc"].includes(persona ?? "")) return <RealParticipantView />;
   return <UserLevelAnalysis />;
 }
 
