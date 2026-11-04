@@ -15,13 +15,13 @@ const ASSISTIVE: EcosystemCategory = {
   category: "Assistive Devices",
   seekersWanting: 14706,
   providersOffering: 326,
-  connections: 1530,
+  connectedSeekers: 1530,
 };
 const SCREENING: EcosystemCategory = {
   category: "Screening",
   seekersWanting: 4,
   providersOffering: 50,
-  connections: 4,
+  connectedSeekers: 4,
 };
 
 const TOTALS: EcosystemTotalsLive = {
@@ -42,7 +42,7 @@ describe("ecosystem live mapping", () => {
   it("maps provider rows from category supply/demand, with capacity and matching unavailable", () => {
     const [row] = toProviderGapRows([ASSISTIVE]);
     expect(row.providers).toBe(326);
-    expect(row.connections).toBe(1530);
+    expect(row.connectedSeekers).toBe(1530);
     expect(row.capacity).toBeNull();
     expect(row.matching).toBeNull();
     expect(row.demand).toBe(14706);
@@ -60,6 +60,14 @@ describe("ecosystem live mapping", () => {
 
   it("never invents a negative action gap", () => {
     expect(unconnectedDemand(SCREENING)).toBe(0);
+  });
+
+  it("never reports more connected seekers than seekers wanting a category", () => {
+    for (const c of [ASSISTIVE, SCREENING]) {
+      expect(c.connectedSeekers).toBeLessThanOrEqual(c.seekersWanting);
+      expect(toProviderGapRows([c])[0]!.actionGap).toBeGreaterThanOrEqual(0);
+      expect(toSeekerGapRows([c])[0]!.actionGap).toBeGreaterThanOrEqual(0);
+    }
   });
 
   it("sums the demand gap across categories", () => {
