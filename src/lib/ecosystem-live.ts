@@ -11,7 +11,7 @@ export interface EcosystemCategory {
   category: string;
   seekersWanting: number;
   providersOffering: number;
-  connections: number;
+  connectedSeekers: number;
 }
 
 export interface EcosystemProviderType {
@@ -41,16 +41,16 @@ export interface EcosystemOverview {
   totals: EcosystemTotalsLive;
 }
 
-/** Connections the ecosystem could still have initiated: demand not yet connected. */
+/** Seekers wanting a category who have no connection yet. */
 export const unconnectedDemand = (c: EcosystemCategory): number =>
-  Math.max(0, c.seekersWanting - c.connections);
+  Math.max(0, c.seekersWanting - c.connectedSeekers);
 
 export interface ProviderGapRow {
   category: string;
   providers: number;
   capacity: null; // no live source — renders "—"
   matching: null; // no live source — renders "—"
-  connections: number;
+  connectedSeekers: number;
   /** Real demand behind the action gap and its level (not shown as "Matching"). */
   demand: number;
   actionGap: number;
@@ -63,7 +63,7 @@ export interface SeekerGapRow {
   /** Seekers wanting this category. */
   reach: number;
   matching: null; // no live source — renders "—"
-  connections: number;
+  connectedSeekers: number;
   /** Same as reach; kept separate so gap levels are computed on demand. */
   demand: number;
   actionGap: number;
@@ -75,7 +75,7 @@ export function toProviderGapRows(categories: EcosystemCategory[]): ProviderGapR
     providers: c.providersOffering,
     capacity: null,
     matching: null,
-    connections: c.connections,
+    connectedSeekers: c.connectedSeekers,
     demand: c.seekersWanting,
     actionGap: unconnectedDemand(c),
   }));
@@ -87,7 +87,7 @@ export function toSeekerGapRows(categories: EcosystemCategory[]): SeekerGapRow[]
     aggregators: c.providersOffering,
     reach: c.seekersWanting,
     matching: null,
-    connections: c.connections,
+    connectedSeekers: c.connectedSeekers,
     demand: c.seekersWanting,
     actionGap: unconnectedDemand(c),
   }));
