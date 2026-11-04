@@ -39,7 +39,7 @@ export const fetchEcosystemOverview = createServerFn({ method: "GET" }).handler(
         category: String(r.category),
         seekersWanting: Number(r.seekers_wanting) || 0,
         providersOffering: Number(r.providers_offering) || 0,
-        connections: Number(r.connections) || 0,
+        connectedSeekers: Number(r.connected_seekers ?? r.connections) || 0,
       })),
       providerTypes: (types.data ?? []).map((r: Record<string, unknown>) => ({
         providerType: String(r.provider_type),

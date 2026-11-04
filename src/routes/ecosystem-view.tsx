@@ -390,7 +390,7 @@ function ProvidersGapPanel({ rows }: { rows: ProviderGapRow[] }) {
                 <span className="block text-[10px] font-normal text-muted-foreground">count of seekers</span>
               </TableHead>
               <TableHead className="text-right">Matching seekers</TableHead>
-              <TableHead className="text-right">Connections</TableHead>
+              <TableHead className="text-right">Connected seekers</TableHead>
               <TableHead className="text-right">Action gap</TableHead>
               <TableHead>Action gap level</TableHead>
               <TableHead className="text-right">Demand-supply gap</TableHead>
@@ -406,7 +406,7 @@ function ProvidersGapPanel({ rows }: { rows: ProviderGapRow[] }) {
                 <TableCell className="text-right tabular-nums">{fmt(r.providers)}</TableCell>
                 <TableCell className="text-right"><Cell value={r.capacity} /></TableCell>
                 <TableCell className="text-right"><Cell value={r.matching} /></TableCell>
-                <TableCell className="text-right tabular-nums">{fmt(r.connections)}</TableCell>
+                <TableCell className="text-right tabular-nums">{fmt(r.connectedSeekers)}</TableCell>
                 <TableCell className="text-right"><GapNumber value={r.actionGap} /></TableCell>
                 <TableCell><LevelBadge level={r.agL} /></TableCell>
                 <TableCell className="text-right"><Cell value={null} red /></TableCell>
@@ -491,7 +491,7 @@ function SeekersGapPanel({ rows }: { rows: SeekerGapRow[] }) {
                 <span className="block text-[10px] font-normal text-muted-foreground">seekers wanting this</span>
               </TableHead>
               <TableHead className="text-right">Matching providers</TableHead>
-              <TableHead className="text-right">Connections</TableHead>
+              <TableHead className="text-right">Connected seekers</TableHead>
               <TableHead className="text-right">Action gap</TableHead>
               <TableHead>Action gap level</TableHead>
               <TableHead className="text-right">Demand-supply gap</TableHead>
@@ -507,7 +507,7 @@ function SeekersGapPanel({ rows }: { rows: SeekerGapRow[] }) {
                 <TableCell className="text-right tabular-nums">{fmt(r.aggregators)}</TableCell>
                 <TableCell className="text-right tabular-nums">{fmt(r.reach)}</TableCell>
                 <TableCell className="text-right"><Cell value={r.matching} /></TableCell>
-                <TableCell className="text-right tabular-nums">{fmt(r.connections)}</TableCell>
+                <TableCell className="text-right tabular-nums">{fmt(r.connectedSeekers)}</TableCell>
                 <TableCell className="text-right"><GapNumber value={r.actionGap} /></TableCell>
                 <TableCell><LevelBadge level={r.agL} /></TableCell>
                 <TableCell className="text-right"><Cell value={null} red /></TableCell>
