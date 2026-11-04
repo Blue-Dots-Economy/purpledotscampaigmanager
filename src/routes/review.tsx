@@ -13,6 +13,13 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/review")({
   validateSearch: (s: Record<string, unknown>) => ({ prefill: typeof s.prefill === "string" ? s.prefill : undefined }),
   component: ReviewHub,
+  head: () => ({ meta: [
+    { title: "Call Review | Purple Dots" },
+    { name: "description", content: "Review Purple Dots seeker call recordings, outcomes and transcripts." },
+    { property: "og:title", content: "Call Review | Purple Dots" },
+    { property: "og:description", content: "Review Purple Dots seeker call recordings, outcomes and transcripts." },
+    { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
+  ] }),
 });
 
 const OUTCOME_OPTIONS = ["All", "Completed", "Early Disconnect"];
