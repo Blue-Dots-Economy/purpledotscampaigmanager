@@ -9,10 +9,11 @@ import { cn } from "@/lib/utils";
 import { useProgram } from "@/programs/context";
 import { useProgramFilterOptions } from "@/programs/useProgramAggregates";
 import type { CampaignDistrictScope } from "@/lib/campaign-district-scope";
+import { campaignChannelOptions } from "@/lib/campaign-channel";
 
 export type StateValue = string;
 export type CampaignTypeValue = string;
-export type ChannelValue = "all" | "outbound" | "inbound";
+export type ChannelValue = string;
 
 export interface OverviewFilterValue {
   state: StateValue;
@@ -23,12 +24,6 @@ export interface OverviewFilterValue {
 }
 
 
-
-const CHANNEL_OPTIONS: { value: ChannelValue; label: string }[] = [
-  { value: "all", label: "All calls" },
-  { value: "outbound", label: "Outbound" },
-  { value: "inbound", label: "Inbound" },
-];
 
 const fmt = (d: Date) => format(d, "yyyy-MM-dd");
 
@@ -52,6 +47,7 @@ export function OverviewFilters({
   const [open, setOpen] = useState(false);
   const { config } = useProgram();
   const { data: options } = useProgramFilterOptions(config);
+  const channelOptions = campaignChannelOptions(options?.channels);
   const stateOptions = useMemo(
     () => [{ value: "all", label: "All states" }, ...(options?.cities ?? []).map((c) => ({ value: c, label: c }))],
     [options?.cities],
@@ -124,9 +120,9 @@ export function OverviewFilters({
       )}
 
       {/* Channel segmented control (KKB only) */}
-      {showChannel && (
+      {showChannel && (options?.channels.length ?? 0) >= 2 && (
         <div className="inline-flex rounded-md border border-border bg-card p-0.5 text-xs">
-          {CHANNEL_OPTIONS.map((opt) => {
+          {channelOptions.map((opt) => {
             const active = value.channel === opt.value;
             return (
               <button

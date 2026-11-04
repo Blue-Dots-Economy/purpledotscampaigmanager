@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
+import { useRouterState } from "@tanstack/react-router";
 import { registry, type ProgramConfig, type ProgramId } from "./registry";
+import { resolveProgramId } from "./call-program";
 
 interface Ctx {
   programId: ProgramId;
@@ -21,5 +23,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
 export function useProgram() {
   const ctx = useContext(ProgramCtx);
   if (!ctx) throw new Error("useProgram must be used inside ProgramProvider");
-  return ctx;
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const programId = resolveProgramId(pathname, ctx.programId);
+  return { ...ctx, programId, config: registry[programId] };
 }

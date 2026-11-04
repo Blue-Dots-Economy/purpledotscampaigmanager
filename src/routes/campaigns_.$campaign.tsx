@@ -8,8 +8,7 @@ import { useCampaignList } from "@/programs/useProgramAggregates";
 import { ProgramAnalytics } from "@/components/metrics/ProgramAnalytics";
 import { CampaignVerdict } from "@/components/campaigns/CampaignVerdict";
 import { CampaignSuccess } from "@/components/campaigns/CampaignSuccess";
-import { CampaignVerdictDkb } from "@/components/campaigns/CampaignVerdictDkb";
-import { CampaignSuccessDkb } from "@/components/campaigns/CampaignSuccessDkb";
+import { parseCampaignChannel } from "@/lib/campaign-channel";
 import { humanizeCampaignType } from "@/lib/campaign-name";
 import { LoadingState, NoDataState, QueryErrorState } from "@/components/EmptyState";
 import {
@@ -23,10 +22,7 @@ import {
 export const Route = createFileRoute("/campaigns_/$campaign")({
   validateSearch: (s: Record<string, unknown>) => ({
     date: typeof s.date === "string" ? s.date : undefined,
-    channel:
-      s.channel === "outbound" || s.channel === "inbound" || s.channel === "all"
-        ? s.channel
-        : undefined,
+    channel: parseCampaignChannel(s.channel),
   }),
   component: CampaignReviewDetail,
   head: () => ({ meta: [
@@ -156,23 +152,6 @@ function CampaignReviewDetail() {
             filters={detailFilters}
           />
           <CampaignVerdict
-            campaign={current.campaignType}
-            region={region}
-            filters={detailFilters}
-          />
-        </>
-      )}
-
-      {config.id === "providers" && (
-        <>
-          <CampaignSuccessDkb
-            campaign={current.campaignType}
-            language={current.language ?? null}
-            region={region}
-            campaignDate={current.campaignDate ?? null}
-            filters={detailFilters}
-          />
-          <CampaignVerdictDkb
             campaign={current.campaignType}
             region={region}
             filters={detailFilters}

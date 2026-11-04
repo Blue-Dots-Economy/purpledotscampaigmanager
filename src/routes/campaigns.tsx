@@ -5,7 +5,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { format } from "date-fns";
 import { Search, ArrowRight, ExternalLink, ShieldAlert, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { useProgram } from "@/programs/context";
-import { useCampaignList } from "@/programs/useProgramAggregates";
+import { useCampaignList, useProgramFilterOptions } from "@/programs/useProgramAggregates";
+import { campaignChannelOptions } from "@/lib/campaign-channel";
 import { humanizeCampaignType } from "@/lib/campaign-name";
 import { CampaignCalendar } from "@/components/campaigns/CampaignCalendar";
 
@@ -74,9 +75,10 @@ interface CampaignLike { campaignType: string; campaignDate: string | null; regi
 
 function CompletedCampaigns() {
   const { config } = useProgram();
-  const isDkb = config.id === "providers";
-  const successLabel = isDkb ? "Active providers" : "Converted";
-  const [channel, setChannel] = useState<"all" | "outbound" | "inbound">("all");
+  const successLabel = "Converted";
+  const [channel, setChannel] = useState<string>("all");
+  const { data: options } = useProgramFilterOptions(config);
+  const channelOptions = campaignChannelOptions(options?.channels);
   const { data, isLoading, error, refetch } = useCampaignList(config, { channel });
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -130,14 +132,10 @@ function CompletedCampaigns() {
               </button>
             ))}
           </div>
-          {!isDkb && (
+          {(options?.channels.length ?? 0) >= 2 && (
 
             <div className="inline-flex rounded-md border border-border bg-card p-0.5 text-xs">
-              {([
-                { value: "all" as const, label: "All calls" },
-                { value: "outbound" as const, label: "Outbound" },
-                { value: "inbound" as const, label: "Inbound" },
-              ]).map((opt) => (
+              {channelOptions.map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
@@ -193,7 +191,7 @@ function CompletedCampaigns() {
   );
 }
 
-function CampaignCard({ campaign, successLabel, channel, highlighted }: { campaign: CampaignLike; successLabel: string; channel: "all" | "outbound" | "inbound"; highlighted?: boolean }) {
+function CampaignCard({ campaign, successLabel, channel, highlighted }: { campaign: CampaignLike; successLabel: string; channel: string; highlighted?: boolean }) {
   return (
     <Link to="/campaigns/$campaign" params={{ campaign: campaign.campaignType }} search={{ date: campaign.campaignDate ?? undefined, channel: channel === "all" ? undefined : channel }} className={cn("group block rounded-xl border bg-card p-5 transition-colors hover:bg-muted/40", highlighted ? "border-primary border-2 shadow-sm" : "border-border")}>
       <div className="flex items-start justify-between gap-3">
@@ -212,7 +210,7 @@ function CampaignCard({ campaign, successLabel, channel, highlighted }: { campai
     </Link>
   );
 }
-function CampaignRow({ campaign, successLabel, channel }: { campaign: CampaignLike; successLabel: string; channel: "all" | "outbound" | "inbound" }) {
+function CampaignRow({ campaign, successLabel, channel }: { campaign: CampaignLike; successLabel: string; channel: string }) {
   return (
     <li>
       <Link to="/campaigns/$campaign" params={{ campaign: campaign.campaignType }} search={{ date: campaign.campaignDate ?? undefined, channel: channel === "all" ? undefined : channel }} className="group flex items-center gap-4 py-3 px-1 hover:bg-muted/40 rounded-md transition-colors">

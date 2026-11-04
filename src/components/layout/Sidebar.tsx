@@ -20,6 +20,7 @@ import { canAccess } from "@/auth/permissions";
 import { listConnections } from "@/lib/connections.functions";
 import { cn } from "@/lib/utils";
 import { registry } from "@/programs/registry";
+import { isCallProgramPath } from "@/programs/call-program";
 import { BlueDotsMark } from "./BlueDotsMark";
 
 type NavItem = {
@@ -191,7 +192,7 @@ export function Sidebar() {
       <div className="px-5 pt-6 pb-4">
         <BlueDotsMark />
 
-        <div
+        {!isCallProgramPath(pathname) && <div
           role="group"
           aria-label="Select program"
           className="mt-5 inline-flex rounded-lg bg-sidebar-accent p-1 w-full"
@@ -212,7 +213,7 @@ export function Sidebar() {
               {registry[id].label}
             </button>
           ))}
-        </div>
+        </div>}
       </div>
 
       <nav className="flex-1 px-3 py-2 space-y-5 overflow-y-auto">

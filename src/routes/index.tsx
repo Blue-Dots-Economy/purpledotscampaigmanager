@@ -25,7 +25,6 @@ export const Route = createFileRoute("/")({
 
 function Overview() {
   const { config } = useProgram();
-  const isDkb = config.id === "providers";
   const [filters, setFilters] = useState<OverviewFilterValue>(() => ({
     state: "all",
     ...overviewDefaultDateRange(),
@@ -37,7 +36,7 @@ function Overview() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <OverviewFilters value={filters} onChange={setFilters} showChannel={!isDkb} districtScope={query.data?.districtScope} />
+        <OverviewFilters value={filters} onChange={setFilters} showChannel districtScope={query.data?.districtScope} />
         {query.isFetching && (
           <span className="text-xs text-muted-foreground">Updating…</span>
         )}
