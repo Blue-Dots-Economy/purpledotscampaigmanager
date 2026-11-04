@@ -947,38 +947,6 @@ export const fetchKkbDropAnalysis = createServerFn({ method: "GET" })
     }
   });
 
-export const fetchDkbDropAnalysis = createServerFn({ method: "GET" })
-  .inputValidator(
-    (d: { state?: string; dateFrom?: string | null; dateTo?: string | null; campaignType?: string; campaign?: string | null; channel?: string }) => d,
-  )
-  .handler(async ({ data }): Promise<KkbDropAnalysisPayload> => {
-    const empty: KkbDropAnalysisPayload = { stages: [], buckets: [], maxCell: 0, grandTotal: 0 };
-    const state = await scopedCampaignState(data.state);
-    try {
-      const client = await sb();
-      const { data: rpcData, error } = await client.rpc("get_dkb_drop_analysis", {
-        _state: state,
-        _date_from: data.dateFrom ?? null,
-        _date_to: data.dateTo ?? null,
-        _campaign_type: data.campaignType ?? "all",
-        _campaign: data.campaign ?? null,
-        _channel: data.channel ?? "all",
-      });
-      if (error) throw new Error(error.message);
-      if (!rpcData || typeof rpcData !== "object") return empty;
-      const p = rpcData as KkbDropAnalysisPayload;
-      return {
-        stages: Array.isArray(p.stages) ? p.stages : [],
-        buckets: Array.isArray(p.buckets) ? p.buckets : [],
-        maxCell: Number(p.maxCell ?? 0) || 0,
-        grandTotal: Number(p.grandTotal ?? 0) || 0,
-        safeguardingFlagged: p.safeguardingFlagged != null ? Number(p.safeguardingFlagged) || 0 : undefined,
-      };
-    } catch {
-      return empty;
-    }
-  });
-
 export interface CampaignListItem {
   campaignType: string;
   campaignDate: string | null;
@@ -1074,46 +1042,6 @@ export const fetchCampaignDropCauses = createServerFn({ method: "GET" })
           segment: Number(p.highIntentNonApply?.segment ?? 0) || 0,
           top: Array.isArray(p.highIntentNonApply?.top) ? p.highIntentNonApply.top : [],
         },
-        phaseShare: Array.isArray(p.phaseShare) ? p.phaseShare : [],
-      };
-    } catch {
-      return empty;
-    }
-  });
-
-export interface DkbCampaignCausesPayload {
-  sampleCalls: number;
-  region: string | null;
-  phaseShare: Array<{
-    phaseKey: string;
-    phaseLabel: string;
-    campaignPct: number;
-    regionPct: number;
-  }>;
-}
-
-export const fetchDkbCampaignCauses = createServerFn({ method: "GET" })
-  .inputValidator(
-    (d: { campaign: string; state?: string; dateFrom?: string | null; dateTo?: string | null; channel?: string }) => d,
-  )
-  .handler(async ({ data }): Promise<DkbCampaignCausesPayload> => {
-    const empty: DkbCampaignCausesPayload = { sampleCalls: 0, region: null, phaseShare: [] };
-    const state = await scopedCampaignState(data.state);
-    try {
-      const client = await sb();
-      const { data: rpcData, error } = await client.rpc("get_dkb_campaign_causes", {
-        _campaign: data.campaign,
-        _state: state,
-        _date_from: data.dateFrom ?? null,
-        _date_to: data.dateTo ?? null,
-        _channel: data.channel ?? "all",
-      });
-      if (error) throw new Error(error.message);
-      if (!rpcData || typeof rpcData !== "object") return empty;
-      const p = rpcData as DkbCampaignCausesPayload;
-      return {
-        sampleCalls: Number(p.sampleCalls ?? 0) || 0,
-        region: p.region ?? null,
         phaseShare: Array.isArray(p.phaseShare) ? p.phaseShare : [],
       };
     } catch {

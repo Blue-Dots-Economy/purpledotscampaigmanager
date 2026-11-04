@@ -26,7 +26,7 @@ export interface CalendarCampaign {
   converted: number;
 }
 
-type Channel = "all" | "outbound" | "inbound";
+type Channel = string;
 
 function parseCampaignDate(s: string | null): Date | null {
   if (!s) return null;

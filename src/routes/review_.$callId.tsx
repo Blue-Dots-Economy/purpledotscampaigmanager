@@ -22,6 +22,13 @@ import { playSwoosh } from "@/lib/sfx";
 export const Route = createFileRoute("/review_/$callId")({
   validateSearch: (s: Record<string, unknown>) => ({ bulk: typeof s.bulk === "string" ? s.bulk : undefined }),
   component: TranscriptReview,
+  head: () => ({ meta: [
+    { title: "Transcript Review | Purple Dots" },
+    { name: "description", content: "Inspect a Purple Dots seeker call transcript and review its conversation quality." },
+    { property: "og:title", content: "Transcript Review | Purple Dots" },
+    { property: "og:description", content: "Inspect a Purple Dots seeker call transcript and review its conversation quality." },
+    { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
+  ] }),
 });
 
 type TurnFlag = { turn: number; note: string };
