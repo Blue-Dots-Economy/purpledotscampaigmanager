@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { GeoErrorBoundary, GeoRollupView } from "./GeoRollupView";
-import { ActivityCell, HeaderBand, HEAD_LABEL, InfoCard, SectionLabel, SortBtn, StatCard, StatusCards, TableShell } from "./shared";
+import { ActivityCell, HeaderBand, HEAD_LABEL, InfoCard, SectionLabel, SortBtn, StatCard, TableShell } from "./shared";
+import { EngagementCards, EngagementErrorBoundary } from "./EngagementCards";
 
 class ParticipantErrorBoundary extends Component<{ children: ReactNode; onRetry: () => Promise<void> }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
@@ -81,10 +82,7 @@ export function ParticipantDashboardBody({ actor, data, domain, isFetching, onRe
       {stale && <p role="status" className="flex items-center gap-2 text-sm text-destructive"><AlertTriangle className="h-4 w-4 shrink-0" />Import is {loadAgeDays(data.loadedAt)} days old — no newer participant load.</p>}
     </HeaderBand>
 
-    <div>
-      <StatusCards status={data.status} />
-      <p className="mt-3 text-sm text-muted-foreground">Inactive is 0 within this data window; this does not establish long-term retention.</p>
-    </div>
+    {actor && <EngagementErrorBoundary><Suspense fallback={<div aria-label="Loading engagement"><LoadingState /></div>}><EngagementCards actor={actor} domain={domain} /></Suspense></EngagementErrorBoundary>}
 
     <div>
       <SectionLabel>Needs attention</SectionLabel>
