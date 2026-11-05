@@ -10,6 +10,7 @@ import { LoadingState, QueryErrorState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { GeoErrorBoundary, GeoRollupView } from "./GeoRollupView";
 import { ActivityCell, HeaderBand, HEAD_LABEL, InfoCard, SectionLabel, SortBtn, StatCard, StatusCards, TableShell } from "./shared";
 
 class ParticipantErrorBoundary extends Component<{ children: ReactNode; onRetry: () => Promise<void> }, { error: Error | null }> {
@@ -49,12 +50,12 @@ export function RealParticipantView() {
 function formatDate(value: string) { return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }); }
 function ParticipantDashboard({ actor, domain }: { actor: string; domain: ParticipantDomain }) {
   const { data, refetch, isFetching } = useParticipantRollup(actor, domain);
-  return <ParticipantDashboardBody data={data} domain={domain} isFetching={isFetching} onRefresh={() => void refetch()} />;
+  return <ParticipantDashboardBody actor={actor} data={data} domain={domain} isFetching={isFetching} onRefresh={() => void refetch()} />;
 }
 export type ParticipantRollupData = ReturnType<typeof useParticipantRollup>["data"];
 /** Presentational body; takes data so it can be rendered without the live query.
  *  Built entirely on the shared my-dots components so it matches the sample views. */
-export function ParticipantDashboardBody({ data, domain, isFetching, onRefresh }: { data: ParticipantRollupData; domain: ParticipantDomain; isFetching: boolean; onRefresh: () => void }) {
+export function ParticipantDashboardBody({ actor, data, domain, isFetching, onRefresh }: { actor?: string; data: ParticipantRollupData; domain: ParticipantDomain; isFetching: boolean; onRefresh: () => void }) {
   const { sortKey, sortDir, toggleSort } = useLiveSort();
   const stale = isParticipantLoadStale(data.loadedAt);
   const start = new Date(data.windowStart);
@@ -132,6 +133,7 @@ export function ParticipantDashboardBody({ data, domain, isFetching, onRefresh }
         </TableRow>)}</TableBody>
       </Table>
     </TableShell>
+    {actor && <GeoErrorBoundary><Suspense fallback={<div aria-label="Loading geography"><LoadingState /></div>}><GeoRollupView actor={actor} domain={domain} /></Suspense></GeoErrorBoundary>}
     <p className="text-xs text-muted-foreground">Network completeness is participant-weighted from rounded organisation averages. Participant window and load date cover the full imported dataset.</p>
   </div>;
 }
