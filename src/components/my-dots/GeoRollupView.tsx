@@ -32,10 +32,9 @@ export function GeoRollupView({ actor, domain }: { actor: string; domain: Partic
   return <div className="space-y-6">
     <div>
       <SectionLabel caption="Live database">Geography</SectionLabel>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <StatCard Icon={MapPinned} title="Located profiles" value={t.located.toLocaleString()} sub={`${cov}% of ${t.total.toLocaleString()}`} />
         <StatCard Icon={MapPin} title="States" value={states} sub="With recorded locations" />
-        <StatCard Icon={Building2} title="Organisations" value={data.byOrganisation.length} sub="In this scope" />
       </div>
     </div>
     <Tabs defaultValue="org">
@@ -73,6 +72,7 @@ function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle }: { title: 
         <TableCell className="text-right tabular-nums text-muted-foreground">{n.located.toLocaleString()} of {n.total.toLocaleString()} located{n.total ? ` (${((n.located / n.total) * 100).toFixed(1)}%)` : ""}</TableCell>
         <TableCell className="text-right tabular-nums">{n.draft.toLocaleString()}</TableCell>
         <TableCell className="text-right tabular-nums">{n.live.toLocaleString()}</TableCell>
+        <TableCell className="text-right tabular-nums">{n.retired.toLocaleString()}</TableCell>
         <TableCell><ActivityCell score={n.avgCompletion} suffix="%" /></TableCell>
         <TableCell className="text-right tabular-nums">{n.belowThreshold.toLocaleString()}</TableCell>
       </TableRow>
@@ -87,6 +87,7 @@ function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle }: { title: 
         <TableHead className="text-right"><SortBtn k="located" sortKey={sortKey} onToggle={onToggle}>Coverage</SortBtn></TableHead>
         <TableHead className={`text-right ${HEAD_LABEL}`}>Draft</TableHead>
         <TableHead className={`text-right ${HEAD_LABEL}`}>Live</TableHead>
+        <TableHead className={`text-right ${HEAD_LABEL}`}>Retired</TableHead>
         <TableHead className="text-right"><SortBtn k="avgCompletion" sortKey={sortKey} onToggle={onToggle}>Completeness</SortBtn></TableHead>
         <TableHead className="text-right"><SortBtn k="belowThreshold" sortKey={sortKey} onToggle={onToggle}>Below 60%</SortBtn></TableHead>
       </TableRow></TableHeader>

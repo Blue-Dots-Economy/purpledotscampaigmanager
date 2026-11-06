@@ -1,4 +1,4 @@
-import { Component, Suspense, type ReactNode, useState } from "react";
+import { Component, Suspense, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Building2, FileText, CheckCircle2, Users, TrendingDown, UserX } from "lucide-react";
@@ -9,9 +9,8 @@ import { PARTICIPANT_SESSION_EXPIRED, isParticipantLoadStale, loadAgeDays, type 
 import { LoadingState, QueryErrorState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { GeoErrorBoundary, GeoRollupView } from "./GeoRollupView";
-import { ActivityCell, HeaderBand, HEAD_LABEL, InfoCard, SectionLabel, SortBtn, StatCard, TableShell } from "./shared";
+import { HeaderBand, InfoCard, SectionLabel, StatCard } from "./shared";
 import { EngagementCards, EngagementErrorBoundary } from "./EngagementCards";
 
 class ParticipantErrorBoundary extends Component<{ children: ReactNode; onRetry: () => Promise<void> }, { error: Error | null }> {
@@ -57,13 +56,11 @@ export type ParticipantRollupData = ReturnType<typeof useParticipantRollup>["dat
 /** Presentational body; takes data so it can be rendered without the live query.
  *  Built entirely on the shared my-dots components so it matches the sample views. */
 export function ParticipantDashboardBody({ actor, data, domain, isFetching, onRefresh }: { actor?: string; data: ParticipantRollupData; domain: ParticipantDomain; isFetching: boolean; onRefresh: () => void }) {
-  const { sortKey, sortDir, toggleSort } = useLiveSort();
-  const stale = isParticipantLoadStale(data.loadedAt);
+  const stale = isParticipantLoadStale(data.latestLoadedAt);
   const start = new Date(data.windowStart);
   const end = new Date(data.windowEnd);
   const sameMonth = start.getUTCMonth() === end.getUTCMonth() && start.getUTCFullYear() === end.getUTCFullYear();
   const window = sameMonth ? `${start.getUTCDate()}–${end.getUTCDate()} ${end.toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })}` : `${formatDate(data.windowStart)} – ${formatDate(data.windowEnd)}`;
-  const orgs = [...data.orgs].sort((a, b) => (a[sortKey] - b[sortKey]) * sortDir);
   const n = data.orgs.length;
   const weakest = [...data.orgs].filter(o => o.total > 0).sort((a, b) => a.avgCompletion - b.avgCompletion)[0];
   const pct = (x: number) => data.total ? Math.round((x / data.total) * 100) : 0;
@@ -79,7 +76,7 @@ export function ParticipantDashboardBody({ actor, data, domain, isFetching, onRe
     >
       <p className="text-sm font-medium">Participant data: {window}</p>
       <p className="text-sm text-muted-foreground">Loaded: {formatDate(data.loadedAt)}{data.loadedAt.slice(0,10) !== data.latestLoadedAt.slice(0,10) ? ` – ${formatDate(data.latestLoadedAt)}` : " · bulk import"}</p>
-      {stale && <p role="status" className="flex items-center gap-2 text-sm text-destructive"><AlertTriangle className="h-4 w-4 shrink-0" />Import is {loadAgeDays(data.loadedAt)} days old — no newer participant load.</p>}
+      {stale && <p role="status" className="flex items-center gap-2 text-sm text-destructive"><AlertTriangle className="h-4 w-4 shrink-0" />Import is {loadAgeDays(data.latestLoadedAt)} days old — no newer participant load.</p>}
     </HeaderBand>
 
     {actor && <EngagementErrorBoundary><Suspense fallback={<div aria-label="Loading engagement"><LoadingState /></div>}><EngagementCards actor={actor} domain={domain} /></Suspense></EngagementErrorBoundary>}
@@ -109,37 +106,7 @@ export function ParticipantDashboardBody({ actor, data, domain, isFetching, onRe
       </div>
     </div>
 
-    <TableShell title="By organisation" caption={`${n} organisations · completeness bar uses the activity colour thresholds`}>
-      <Table>
-        <TableHeader><TableRow>
-          <TableHead className={HEAD_LABEL}>Organisation</TableHead>
-          <TableHead className="text-right"><SortBtn k="total" sortKey={sortKey} onToggle={toggleSort}>Participants</SortBtn></TableHead>
-          <TableHead className="text-right"><SortBtn k="draft" sortKey={sortKey} onToggle={toggleSort}>Draft</SortBtn></TableHead>
-          <TableHead className={`text-right ${HEAD_LABEL}`}>Live</TableHead>
-          <TableHead className={`text-right ${HEAD_LABEL}`}>Retired</TableHead>
-          <TableHead className="text-right"><SortBtn k="avgCompletion" sortKey={sortKey} onToggle={toggleSort}>Completeness</SortBtn></TableHead>
-          <TableHead className="text-right"><SortBtn k="belowThreshold" sortKey={sortKey} onToggle={toggleSort}>Below 60%</SortBtn></TableHead>
-        </TableRow></TableHeader>
-        <TableBody>{orgs.map(o => <TableRow key={o.id}>
-          <TableCell><span className="inline-flex items-center gap-2 font-medium"><Building2 className="h-4 w-4 text-muted-foreground" />{o.name}</span></TableCell>
-          <TableCell className="text-right tabular-nums">{o.total.toLocaleString()}</TableCell>
-          <TableCell className="text-right tabular-nums">{o.draft.toLocaleString()}</TableCell>
-          <TableCell className="text-right tabular-nums">{o.live.toLocaleString()}</TableCell>
-          <TableCell className="text-right tabular-nums">{o.retired.toLocaleString()}</TableCell>
-          <TableCell><ActivityCell score={o.avgCompletion} suffix="%" /></TableCell>
-          <TableCell className="text-right tabular-nums">{o.belowThreshold.toLocaleString()}</TableCell>
-        </TableRow>)}</TableBody>
-      </Table>
-    </TableShell>
     {actor && <GeoErrorBoundary><Suspense fallback={<div aria-label="Loading geography"><LoadingState /></div>}><GeoRollupView actor={actor} domain={domain} /></Suspense></GeoErrorBoundary>}
     <p className="text-xs text-muted-foreground">Network completeness is participant-weighted from rounded organisation averages. Participant window and load date cover the full imported dataset.</p>
   </div>;
-}
-
-type LiveSortKey = "total" | "draft" | "avgCompletion" | "belowThreshold";
-function useLiveSort() {
-  const [sortKey, setSortKey] = useState<LiveSortKey>("total");
-  const [sortDir, setSortDir] = useState<1 | -1>(-1);
-  const toggleSort = (k: LiveSortKey) => { if (k === sortKey) setSortDir(d => d === 1 ? -1 : 1); else { setSortKey(k); setSortDir(-1); } };
-  return { sortKey, sortDir, toggleSort };
 }

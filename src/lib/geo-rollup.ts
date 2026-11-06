@@ -4,12 +4,12 @@ import type { ParticipantDomain } from "./participant-rollup";
 export type GeoRollupRow = {
   org_name: string; coordinator_code: string; coordinator_type: string;
   state: string | null; district: string | null; domain: ParticipantDomain;
-  total: number; live_count: number; draft_count: number; avg_completion: number; below_threshold: number;
+  total: number; live_count: number; draft_count: number; retired_count: number; avg_completion: number; below_threshold: number;
 };
 
 export const LOCATION_NOT_RECORDED = "Location not recorded";
 
-export type GeoMetrics = { total: number; live: number; draft: number; located: number; avgCompletion: number; belowThreshold: number };
+export type GeoMetrics = { total: number; live: number; draft: number; retired: number; located: number; avgCompletion: number; belowThreshold: number };
 export type GeoNode = GeoMetrics & { id: string; label: string; kind: "org" | "coordinator" | "state" | "district"; coordinatorType?: string; children: GeoNode[] };
 
 export function scopeGeoRows(rows: GeoRollupRow[], domain: ParticipantDomain, organisation: string | null): GeoRollupRow[] {
@@ -20,14 +20,15 @@ export function scopeGeoRows(rows: GeoRollupRow[], domain: ParticipantDomain, or
 
 /** Participant-weighted completion: sum(total × avg) / sum(total), never a mean of means. */
 export function geoMetrics(rows: GeoRollupRow[]): GeoMetrics {
-  let total = 0, live = 0, draft = 0, located = 0, weighted = 0, below = 0;
+  let total = 0, live = 0, draft = 0, retired = 0, located = 0, weighted = 0, below = 0;
   for (const r of rows) {
     const t = Number(r.total);
     total += t; live += Number(r.live_count); draft += Number(r.draft_count);
+    retired += Number(r.retired_count);
     if (r.state != null) located += t;
     weighted += t * Number(r.avg_completion); below += Number(r.below_threshold);
   }
-  return { total, live, draft, located, avgCompletion: total ? Math.round(weighted / total) : 0, belowThreshold: below };
+  return { total, live, draft, retired, located, avgCompletion: total ? Math.round(weighted / total) : 0, belowThreshold: below };
 }
 
 type Level = { kind: GeoNode["kind"]; key: (r: GeoRollupRow) => string };
