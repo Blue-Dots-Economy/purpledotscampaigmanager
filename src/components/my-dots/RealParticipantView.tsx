@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { GeoErrorBoundary, GeoRollupView } from "./GeoRollupView";
 import { HeaderBand, InfoCard, SectionLabel, StatCard } from "./shared";
 import { EngagementCards, EngagementErrorBoundary } from "./EngagementCards";
+import { ProfileSignalErrorBoundary, ProfileSignalView } from "./ProfileSignalView";
+import { canSeeProfileSignal } from "@/lib/profile-signal";
 
 class ParticipantErrorBoundary extends Component<{ children: ReactNode; onRetry: () => Promise<void> }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
@@ -106,6 +108,7 @@ export function ParticipantDashboardBody({ actor, data, domain, isFetching, onRe
       </div>
     </div>
 
+    {actor && domain === "seeker" && canSeeProfileSignal(actor) && <ProfileSignalErrorBoundary><Suspense fallback={<div aria-label="Loading profile signal"><LoadingState /></div>}><ProfileSignalView actor={actor} /></Suspense></ProfileSignalErrorBoundary>}
     {actor && <GeoErrorBoundary><Suspense fallback={<div aria-label="Loading geography"><LoadingState /></div>}><GeoRollupView actor={actor} domain={domain} /></Suspense></GeoErrorBoundary>}
     <p className="text-xs text-muted-foreground">Network completeness is participant-weighted from rounded organisation averages. Participant window and load date cover the full imported dataset.</p>
   </div>;
