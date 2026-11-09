@@ -32,7 +32,8 @@ export function GeoRollupView({ actor, domain }: { actor: string; domain: Partic
   const signal = useProfileSignal(actor, signalOn);
   const [filter, setFilter] = useState<SignalFilter | null>(null);
   const counts = signal.data?.allowed ? signal.data.counts : undefined;
-  const sig = signalOn && counts ? { filter, counts } : undefined;
+  const sigState: SigState = signal.error ? "error" : counts ? "ready" : "loading";
+  const sig = signalOn ? { filter: counts ? filter : null, counts: counts ?? {}, state: sigState } : undefined;
   const toggle = (k: SortKey) => { if (k === sortKey) setSortDir(d => d === 1 ? -1 : 1); else { setSortKey(k); setSortDir(-1); } };
   const t = data.totals;
   const cov = t.total ? ((t.located / t.total) * 100).toFixed(1) : "0.0";
@@ -60,7 +61,8 @@ export function GeoRollupView({ actor, domain }: { actor: string; domain: Partic
   </div>;
 }
 
-type Sig = { filter: SignalFilter | null; counts: SignalCounts };
+type SigState = "ready" | "loading" | "error";
+type Sig = { filter: SignalFilter | null; counts: SignalCounts; state: SigState };
 function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle, sig }: { title: string; first: string; nodes: GeoNode[]; sortKey: SortKey; sortDir: 1 | -1; onToggle: (k: SortKey) => void; sig?: Sig }) {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const flip = (id: string) => setOpen(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -83,7 +85,7 @@ function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle, sig }: { ti
         <TableCell className="text-right tabular-nums">{n.draft.toLocaleString()}</TableCell>
         <TableCell className="text-right tabular-nums">{n.live.toLocaleString()}</TableCell>
         <TableCell className="text-right tabular-nums">{n.retired.toLocaleString()}</TableCell>
-        <TableCell>{sig?.filter ? <SignalCell node={n} sig={{ ...sig, filter: sig.filter }} /> : sig ? <SignalTagCell node={n} counts={sig.counts} /> : <ActivityCell score={n.avgCompletion} suffix="%" />}</TableCell>
+        <TableCell>{sig?.filter ? <SignalCell node={n} sig={{ ...sig, filter: sig.filter }} /> : sig ? <SignalTagCell node={n} counts={sig.counts} state={sig.state} /> : <ActivityCell score={n.avgCompletion} suffix="%" />}</TableCell>
         <TableCell className="text-right tabular-nums">{n.belowThreshold.toLocaleString()}</TableCell>
       </TableRow>
       {isOpen && render(n.children, depth + 1)}
@@ -123,7 +125,11 @@ const TAG = {
 } as const;
 
 /** Row's most common profile status (draft + live) as a tag, with completeness underneath. */
-function SignalTagCell({ node, counts }: { node: GeoNode; counts: SignalCounts }) {
+function SignalTagCell({ node, counts, state }: { node: GeoNode; counts: SignalCounts; state: SigState }) {
+  if (state !== "ready") return <div className="flex flex-col items-end gap-1">
+    <span className="whitespace-nowrap rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">{state === "loading" ? "Checking signal…" : "Signal unavailable"}</span>
+    <span className="text-xs tabular-nums text-muted-foreground">{node.avgCompletion}% complete</span>
+  </div>;
   const c = counts[node.id];
   const n = (key: "strong" | "moderate" | "weak") => matchFor(node, c, { kind: "signal", key }).total;
   const by = (["strong", "moderate", "weak"] as const).map(k => ({ k, v: n(k) }));
