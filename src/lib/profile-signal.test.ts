@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { canSeeProfileSignal, classify, disabilityPasses, locationPasses, needCategoryPasses, rollupProfileSignal } from "./profile-signal";
+import { buildSignalCounts, canSeeProfileSignal, classify, disabilityPasses, locationPasses, matchFor, needCategoryPasses, nodeIdsFor, TOTAL_KEY } from "./profile-signal";
+import { rollupByGeography, rollupByOrganisation, type GeoRollupRow } from "./geo-rollup";
 
 const all = { name: true, location: true, contact: true, disability: true, needCategory: true, needDetails: true };
 describe("profile signal", () => {
@@ -32,17 +33,26 @@ describe("profile signal", () => {
     expect(needCategoryPasses([" "])).toBe(false);
     expect(needCategoryPasses(["Government Schemes"])).toBe(true);
   });
-  it("counts every unmatched participant as Weak so totals reconcile", () => {
-    const r = rollupProfileSignal({
-      orgTotals: new Map([["A", 10], ["B", 5]]),
-      profileOrg: new Map([["p1", "A"], ["p2", "A"], ["p3", "B"]]),
+  it("uses the same row ids as both organisation and geography tables", () => {
+    const r: GeoRollupRow = { org_name: "A", coordinator_code: "C1", coordinator_type: "seeker", state: "UP", district: "Basti", domain: "seeker", total: 1, live_count: 0, draft_count: 1, retired_count: 0, avg_completion: 0, below_threshold: 0 };
+    const unloc = { ...r, state: null, district: null };
+    const ids = (n: { id: string; children: any[] }[]): string[] => n.flatMap(x => [x.id, ...ids(x.children)]);
+    for (const row of [r, unloc]) {
+      const tableIds = [...ids(rollupByOrganisation([row])), ...ids(rollupByGeography([row]))].sort();
+      expect(nodeIdsFor({ org: row.org_name, coordinator: row.coordinator_code, state: row.state, district: row.district }).sort()).toEqual(tableIds);
+    }
+  });
+  it("splits matches by draft and live, and every unmatched profile counts as Weak", () => {
+    const base = { org: "A", coordinator: "C1", state: null, district: null };
+    const counts = buildSignalCounts({
+      profiles: [{ ...base, item_id: "p1", lifecycle: "draft" }, { ...base, item_id: "p2", lifecycle: "live" }],
       calls: [{ item_id: "p1", disability: ["Locomotor Disability"], needs: ["Employment Support"] }, { item_id: "p2", disability: ["Mental Illness"], needs: null }],
-      locations: [{ item_id: "p1", location_label: "Ward 4", district: "Basti", state: "UP" }, { item_id: "p3", location_label: "Hadapsar", district: "Pune", state: "MH" }],
+      locations: [{ item_id: "p1", location_label: "Ward 4", district: null, state: null }],
     });
-    const a = r.byOrganisation.find(o => o.org === "A")!;
-    expect(a).toMatchObject({ total: 10, strong: 0, moderate: 1, weak: 9 });
-    expect(a.missing).toMatchObject({ location: 9, disability: 8, needCategory: 9, name: 10 });
-    expect(r.totals).toMatchObject({ total: 15, moderate: 1, weak: 14 });
-    expect(r.totals.missing.location).toBe(13);
+    const row = { draft: 8, live: 2 };
+    expect(matchFor(row, counts["/org:A"], { kind: "signal", key: "moderate" })).toEqual({ draft: 1, live: 0, total: 1 });
+    expect(matchFor(row, counts["/org:A"], { kind: "signal", key: "weak" })).toEqual({ draft: 7, live: 2, total: 9 });
+    expect(matchFor(row, counts[TOTAL_KEY], { kind: "missing", key: "disability" })).toEqual({ draft: 7, live: 1, total: 8 });
+    expect(matchFor(row, undefined, { kind: "signal", key: "weak" })).toEqual({ draft: 8, live: 2, total: 10 });
   });
 });

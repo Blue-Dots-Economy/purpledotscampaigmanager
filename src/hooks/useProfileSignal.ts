@@ -1,10 +1,9 @@
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { fetchProfileSignal } from "@/lib/profile-signal.functions";
 
-export function useProfileSignal(actor: string) {
+/** Non-suspending: the organisation table renders immediately; the filter enables once counts arrive. */
+export function useProfileSignal(actor: string, enabled: boolean) {
   const fetcher = useServerFn(fetchProfileSignal);
-  const query = useSuspenseQuery(queryOptions({ queryKey: ["profile-signal", actor], queryFn: () => fetcher(), staleTime: 5 * 60_000, retry: false }));
-  if (query.error) throw query.error;
-  return query;
+  return useQuery({ queryKey: ["profile-signal", actor], queryFn: () => fetcher(), enabled, staleTime: 5 * 60_000, retry: false });
 }

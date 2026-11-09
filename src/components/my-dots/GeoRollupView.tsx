@@ -6,6 +6,9 @@ import type { GeoNode } from "@/lib/geo-rollup";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ActivityCell, HEAD_LABEL, SectionLabel, SortBtn, StatCard, TableShell } from "./shared";
+import { useProfileSignal } from "@/hooks/useProfileSignal";
+import { canSeeProfileSignal, matchFor, type SignalCounts, type SignalFilter } from "@/lib/profile-signal";
+import { filterLabel, pct, ProfileSignalFilter } from "./ProfileSignalFilter";
 
 type SortKey = "total" | "located" | "avgCompletion" | "belowThreshold";
 const INDENT = ["", "pl-12", "pl-20", "pl-28"];
@@ -25,6 +28,11 @@ export function GeoRollupView({ actor, domain }: { actor: string; domain: Partic
   const { data } = useGeoRollup(actor, domain);
   const [sortKey, setSortKey] = useState<SortKey>("total");
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
+  const signalOn = domain === "seeker" && canSeeProfileSignal(actor);
+  const signal = useProfileSignal(actor, signalOn);
+  const [filter, setFilter] = useState<SignalFilter | null>(null);
+  const counts = signal.data?.allowed ? signal.data.counts : undefined;
+  const sig = signalOn && filter && counts ? { filter, counts } : undefined;
   const toggle = (k: SortKey) => { if (k === sortKey) setSortDir(d => d === 1 ? -1 : 1); else { setSortKey(k); setSortDir(-1); } };
   const t = data.totals;
   const cov = t.total ? ((t.located / t.total) * 100).toFixed(1) : "0.0";
@@ -37,21 +45,23 @@ export function GeoRollupView({ actor, domain }: { actor: string; domain: Partic
         <StatCard Icon={MapPin} title="States" value={states} sub="With recorded locations" />
       </div>
     </div>
+    {signalOn && <ProfileSignalFilter value={filter} onChange={setFilter} counts={counts} totals={{ draft: t.draft, live: t.live }} loading={signal.isLoading} error={signal.error?.message} />}
     <Tabs defaultValue="org">
       <TabsList><TabsTrigger value="org">By organisation</TabsTrigger><TabsTrigger value="geo">By geography</TabsTrigger></TabsList>
       <TabsContent value="org" className="space-y-2">
-        <GeoTable title="Organisations · coordinators · locations" first="Organisation" nodes={data.byOrganisation} sortKey={sortKey} sortDir={sortDir} onToggle={toggle} />
+        <GeoTable title="Organisations · coordinators · locations" first="Organisation" nodes={data.byOrganisation} sortKey={sortKey} sortDir={sortDir} onToggle={toggle} sig={sig} />
         <p className="text-xs text-muted-foreground">{COVERAGE_NOTE}</p>
       </TabsContent>
       <TabsContent value="geo" className="space-y-2">
-        <GeoTable title="States · districts · organisations" first="State" nodes={data.byGeography} sortKey={sortKey} sortDir={sortDir} onToggle={toggle} />
+        <GeoTable title="States · districts · organisations" first="State" nodes={data.byGeography} sortKey={sortKey} sortDir={sortDir} onToggle={toggle} sig={sig} />
         <p className="text-xs text-muted-foreground">{COVERAGE_NOTE}</p>
       </TabsContent>
     </Tabs>
   </div>;
 }
 
-function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle }: { title: string; first: string; nodes: GeoNode[]; sortKey: SortKey; sortDir: 1 | -1; onToggle: (k: SortKey) => void }) {
+type Sig = { filter: SignalFilter; counts: SignalCounts };
+function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle, sig }: { title: string; first: string; nodes: GeoNode[]; sortKey: SortKey; sortDir: 1 | -1; onToggle: (k: SortKey) => void; sig?: Sig }) {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const flip = (id: string) => setOpen(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const sorted = (list: GeoNode[]) => [...list].sort((a, b) => (a[sortKey] - b[sortKey]) * sortDir);
@@ -73,13 +83,13 @@ function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle }: { title: 
         <TableCell className="text-right tabular-nums">{n.draft.toLocaleString()}</TableCell>
         <TableCell className="text-right tabular-nums">{n.live.toLocaleString()}</TableCell>
         <TableCell className="text-right tabular-nums">{n.retired.toLocaleString()}</TableCell>
-        <TableCell><ActivityCell score={n.avgCompletion} suffix="%" /></TableCell>
+        <TableCell>{sig ? <SignalCell node={n} sig={sig} /> : <ActivityCell score={n.avgCompletion} suffix="%" />}</TableCell>
         <TableCell className="text-right tabular-nums">{n.belowThreshold.toLocaleString()}</TableCell>
       </TableRow>
       {isOpen && render(n.children, depth + 1)}
     </Fragment>;
   });
-  return <TableShell title={title} caption="Expand rows to drill down · completeness is participant-weighted">
+  return <TableShell title={title} caption={sig ? `Expand rows to drill down · Completeness shows ${filterLabel(sig.filter)} profiles (draft + live)` : "Expand rows to drill down · completeness is participant-weighted"}>
     <Table>
       <TableHeader><TableRow>
         <TableHead className={HEAD_LABEL}>{first}</TableHead>
@@ -88,10 +98,20 @@ function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle }: { title: 
         <TableHead className={`text-right ${HEAD_LABEL}`}>Draft</TableHead>
         <TableHead className={`text-right ${HEAD_LABEL}`}>Live</TableHead>
         <TableHead className={`text-right ${HEAD_LABEL}`}>Retired</TableHead>
-        <TableHead className="text-right"><SortBtn k="avgCompletion" sortKey={sortKey} onToggle={onToggle}>Completeness</SortBtn></TableHead>
+        <TableHead className="text-right">{sig ? <span className={HEAD_LABEL}>{filterLabel(sig.filter)}</span> : <SortBtn k="avgCompletion" sortKey={sortKey} onToggle={onToggle}>Completeness</SortBtn>}</TableHead>
         <TableHead className="text-right"><SortBtn k="belowThreshold" sortKey={sortKey} onToggle={onToggle}>Below 60%</SortBtn></TableHead>
       </TableRow></TableHeader>
       <TableBody>{render(nodes, 0)}</TableBody>
     </Table>
   </TableShell>;
+}
+
+/** Replaces the completeness bar while a profile-status filter is applied. */
+function SignalCell({ node, sig }: { node: GeoNode; sig: Sig }) {
+  const m = matchFor(node, sig.counts[node.id], sig.filter);
+  const of = node.draft + node.live;
+  return <div className="min-w-40 text-right tabular-nums">
+    <div className="font-medium">{m.total.toLocaleString()} <span className="text-xs text-muted-foreground">{pct(m.total, of)}</span></div>
+    <div className="whitespace-nowrap text-xs text-muted-foreground">Draft {m.draft.toLocaleString()} · Live {m.live.toLocaleString()}</div>
+  </div>;
 }

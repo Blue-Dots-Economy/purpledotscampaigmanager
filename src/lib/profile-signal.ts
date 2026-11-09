@@ -1,3 +1,4 @@
+import { LOCATION_NOT_RECORDED } from "./geo-rollup";
 /** Six-check profile signal (Strong / Moderate / Weak), rolled up per organisation.
  *  Name, Email/Phone and Need Details are not loaded into the database yet, so they
  *  always fail and are reported as "not loaded" rather than as real gaps. */
@@ -43,31 +44,50 @@ export function classify(c: Checks): Signal {
   return "weak";
 }
 
-export type SignalMetrics = { total: number; strong: number; moderate: number; weak: number; missing: Record<CheckKey, number> };
-export type SignalOrg = SignalMetrics & { org: string };
 
-/** orgTotals: participants per organisation (all seekers). profileOrg: organisation of each item id we hold facts for. */
-export function rollupProfileSignal(input: {
-  orgTotals: Map<string, number>; profileOrg: Map<string, string>; calls: CallFacts[]; locations: LocationFacts[];
-}): { totals: SignalMetrics; byOrganisation: SignalOrg[] } {
+/** Pass counts for one lifecycle bucket of one table row. Weak and "missing" are derived from the row's totals. */
+export type Bucket = { strong: number; moderate: number; location: number; disability: number; needCategory: number };
+export type SignalCounts = Record<string, { draft: Bucket; live: Bucket }>;
+export type ProfileFacts = { item_id: string; org: string; coordinator: string; state: string | null; district: string | null; lifecycle: string };
+export const TOTAL_KEY = "";
+
+/** Same row ids the organisation / geography tables use (see geo-rollup nest()). */
+export function nodeIdsFor(p: Pick<ProfileFacts, "org" | "coordinator" | "state" | "district">): string[] {
+  const st = p.state ?? LOCATION_NOT_RECORDED, di = p.district ?? LOCATION_NOT_RECORDED;
+  const o = `/org:${p.org}`, c = `${o}/coordinator:${p.coordinator}`, s = `${c}/state:${st}`;
+  const ids = [o, c, s];
+  if (p.state != null) ids.push(`${s}/district:${di}`);
+  const gs = `/state:${st}`;
+  ids.push(gs);
+  if (p.state != null) { const gd = `${gs}/district:${di}`; ids.push(gd, `${gd}/org:${p.org}`); } else ids.push(`${gs}/org:${p.org}`);
+  return ids;
+}
+
+const emptyBucket = (): Bucket => ({ strong: 0, moderate: 0, location: 0, disability: 0, needCategory: 0 });
+
+export function buildSignalCounts(input: { profiles: ProfileFacts[]; calls: CallFacts[]; locations: LocationFacts[] }): SignalCounts {
   const dis = new Set<string>(), need = new Set<string>(), loc = new Set<string>();
   for (const c of input.calls) { if (disabilityPasses(c.disability)) dis.add(c.item_id); if (needCategoryPasses(c.needs)) need.add(c.item_id); }
   for (const l of input.locations) if (locationPasses(l)) loc.add(l.item_id);
-  const blank = (org: string, total: number): SignalOrg => ({ org, total, strong: 0, moderate: 0, weak: 0, missing: { name: total, location: total, contact: total, disability: total, needCategory: total, needDetails: total } });
-  const orgs = new Map<string, SignalOrg>();
-  for (const [org, total] of input.orgTotals) orgs.set(org, blank(org, total));
-  const ids = new Set([...dis, ...need, ...loc]);
-  for (const id of ids) {
-    const org = input.profileOrg.get(id); const o = org ? orgs.get(org) : undefined;
-    if (!o) continue; // profile outside this scope / programme
-    const c: Checks = { name: false, contact: false, needDetails: false, location: loc.has(id), disability: dis.has(id), needCategory: need.has(id) };
-    const s = classify(c); if (s !== "weak") o[s] += 1;
-    for (const k of ["location", "disability", "needCategory"] as const) if (c[k]) o.missing[k] -= 1;
+  const out: SignalCounts = {};
+  for (const p of input.profiles) {
+    if (p.lifecycle !== "draft" && p.lifecycle !== "live") continue;
+    const c: Checks = { name: false, contact: false, needDetails: false, location: loc.has(p.item_id), disability: dis.has(p.item_id), needCategory: need.has(p.item_id) };
+    if (!c.location && !c.disability && !c.needCategory) continue;
+    const s = classify(c);
+    for (const id of [TOTAL_KEY, ...nodeIdsFor(p)]) {
+      const b = (out[id] ??= { draft: emptyBucket(), live: emptyBucket() })[p.lifecycle];
+      if (s !== "weak") b[s] += 1;
+      if (c.location) b.location += 1; if (c.disability) b.disability += 1; if (c.needCategory) b.needCategory += 1;
+    }
   }
-  const list = [...orgs.values()].map(o => ({ ...o, weak: o.total - o.strong - o.moderate }));
-  const totals = blank("", 0) as SignalMetrics;
-  for (const o of list) { totals.total += o.total; totals.strong += o.strong; totals.moderate += o.moderate; totals.weak += o.weak; for (const k of Object.keys(o.missing) as CheckKey[]) totals.missing[k] += o.missing[k]; }
-  for (const k of Object.keys(totals.missing) as CheckKey[]) totals.missing[k] -= 0;
-  totals.missing = Object.fromEntries((Object.keys(totals.missing) as CheckKey[]).map(k => [k, list.reduce((a, o) => a + o.missing[k], 0)])) as Record<CheckKey, number>;
-  return { totals, byOrganisation: list.sort((a, b) => b.total - a.total) };
+  return out;
+}
+
+export type SignalFilter = { kind: "signal"; key: Signal } | { kind: "missing"; key: "location" | "disability" | "needCategory" };
+/** Matching profiles in one row for the chosen filter, split by Draft / Live. */
+export function matchFor(row: { draft: number; live: number }, counts: { draft: Bucket; live: Bucket } | undefined, f: SignalFilter) {
+  const one = (n: number, b: Bucket) => f.kind === "missing" ? n - b[f.key] : f.key === "weak" ? n - b.strong - b.moderate : b[f.key];
+  const draft = one(row.draft, counts?.draft ?? emptyBucket()), live = one(row.live, counts?.live ?? emptyBucket());
+  return { draft, live, total: draft + live };
 }
