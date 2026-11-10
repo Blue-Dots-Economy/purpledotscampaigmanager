@@ -6,6 +6,8 @@ import {
   toSeekerGapRows,
   totalSeekerDemandGap,
   unconnectedDemand,
+  unmatchedDemand,
+  totalUnmatchedDemand,
   type EcosystemCategory,
   type EcosystemTotalsLive,
 } from "./ecosystem-live";
@@ -16,12 +18,18 @@ const ASSISTIVE: EcosystemCategory = {
   seekersWanting: 14706,
   providersOffering: 326,
   connectedSeekers: 1530,
+  matchedSeekers: 14000,
+  strongMatches: 12000,
+  matchesComputedAt: "2026-11-10T00:00:00Z",
 };
 const SCREENING: EcosystemCategory = {
   category: "Screening",
   seekersWanting: 4,
   providersOffering: 50,
   connectedSeekers: 4,
+  matchedSeekers: null,
+  strongMatches: null,
+  matchesComputedAt: null,
 };
 
 const TOTALS: EcosystemTotalsLive = {
@@ -39,12 +47,13 @@ const TOTALS: EcosystemTotalsLive = {
 };
 
 describe("ecosystem live mapping", () => {
-  it("maps provider rows from category supply/demand, with capacity and matching unavailable", () => {
+  it("maps provider rows from live category supply, demand and matches", () => {
     const [row] = toProviderGapRows([ASSISTIVE]);
     expect(row.providers).toBe(326);
     expect(row.connectedSeekers).toBe(1530);
-    expect(row.capacity).toBeNull();
-    expect(row.matching).toBeNull();
+    expect(row.strongMatches).toBe(12000);
+    expect(row.matching).toBe(14000);
+    expect(row.demandSupplyGap).toBe(2706);
     expect(row.demand).toBe(14706);
     expect(row.actionGap).toBe(14706 - 1530);
   });
@@ -54,7 +63,9 @@ describe("ecosystem live mapping", () => {
     expect(row.area).toBe("Assistive Devices");
     expect(row.aggregators).toBe(326);
     expect(row.reach).toBe(14706);
-    expect(row.matching).toBeNull();
+    expect(row.matching).toBe(14000);
+    expect(row.strongMatches).toBe(12000);
+    expect(row.demandSupplyGap).toBe(2706);
     expect(row.actionGap).toBe(14706 - 1530);
   });
 
@@ -65,8 +76,10 @@ describe("ecosystem live mapping", () => {
   it("never reports more connected seekers than seekers wanting a category", () => {
     for (const c of [ASSISTIVE, SCREENING]) {
       expect(c.connectedSeekers).toBeLessThanOrEqual(c.seekersWanting);
-      expect(toProviderGapRows([c])[0]!.actionGap).toBeGreaterThanOrEqual(0);
-      expect(toSeekerGapRows([c])[0]!.actionGap).toBeGreaterThanOrEqual(0);
+      const [provider] = toProviderGapRows([c]);
+      const [seeker] = toSeekerGapRows([c]);
+      expect(provider.actionGap).toBeGreaterThanOrEqual(0);
+      expect(seeker.actionGap).toBeGreaterThanOrEqual(0);
     }
   });
 
@@ -80,5 +93,34 @@ describe("ecosystem live mapping", () => {
 
   it("labels the connection window", () => {
     expect(connectionWindowLabel("2026-10-07", "2026-10-29")).toBe("7 Oct – 29 Oct 2026");
+  });
+
+  it("subtracts high-confidence matches from demand", () => {
+    expect(unmatchedDemand({ ...ASSISTIVE, seekersWanting: 14723, strongMatches: 12073 })).toBe(2650);
+    expect(unmatchedDemand({ ...ASSISTIVE, seekersWanting: 13842, strongMatches: 11459 })).toBe(2383);
+  });
+
+  it("never reports a negative unmatched demand", () => {
+    expect(unmatchedDemand({ ...SCREENING, strongMatches: 5 })).toBe(0);
+  });
+
+  it("keeps unloaded match data null in helpers and both row mappings", () => {
+    expect(unmatchedDemand(SCREENING)).toBeNull();
+    expect(totalUnmatchedDemand([ASSISTIVE, SCREENING])).toBeNull();
+    for (const row of [...toProviderGapRows([SCREENING]), ...toSeekerGapRows([SCREENING])]) {
+      expect(row.matching).toBeNull();
+      expect(row.strongMatches).toBeNull();
+      expect(row.demandSupplyGap).toBeNull();
+    }
+  });
+
+  it("treats zero strong matches as full unmet demand, not missing data", () => {
+    const employment = { ...ASSISTIVE, seekersWanting: 398, matchedSeekers: 398, strongMatches: 0 };
+    expect(unmatchedDemand(employment)).toBe(398);
+    expect(totalUnmatchedDemand([employment])).toBe(398);
+  });
+
+  it("sums unmatched demand across fully loaded categories", () => {
+    expect(totalUnmatchedDemand([ASSISTIVE, { ...SCREENING, strongMatches: 3 }])).toBe(2707);
   });
 });

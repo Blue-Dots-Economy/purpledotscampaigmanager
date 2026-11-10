@@ -37,6 +37,7 @@ import {
   toProviderGapRows,
   toSeekerGapRows,
   totalSeekerDemandGap,
+  totalUnmatchedDemand,
   type ProviderGapRow,
   type SeekerGapRow,
 } from "@/lib/ecosystem-live";
@@ -258,6 +259,7 @@ function Figure({ value, label, red }: { value: string; label: string; red?: boo
 
 function GapSummary({ data }: { data: EcosystemOverviewResult }) {
   const t = data.totals;
+  const unmatched = totalUnmatchedDemand(data.categories);
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <Panel title="Action gap" description="Connections the ecosystem could have initiated.">
@@ -281,8 +283,8 @@ function GapSummary({ data }: { data: EcosystemOverviewResult }) {
           />
           <Figure
             red
-            value="—"
-            label="Gap in provider supply · unavailable: provider capacity is not recorded"
+            value={unmatched === null ? "—" : fmt(unmatched)}
+            label="Gap in provider supply · seekers with no high-confidence provider match"
           />
         </div>
       </Panel>
@@ -352,7 +354,9 @@ function ProvidersGapPanel({ rows }: { rows: ProviderGapRow[] }) {
 
   const enriched = rows.map((r) => {
     const agL = gapLevel(r.actionGap, r.demand);
-    return { ...r, agL, actions: recommendedActions("provider", agL, "Low") };
+    const dsL: GapLevelLabel | null =
+      r.demandSupplyGap === null ? null : gapLevel(r.demandSupplyGap, r.demand);
+    return { ...r, agL, dsL, actions: recommendedActions("provider", agL, dsL ?? "Low") };
   });
 
   const filtered = enriched.filter(
@@ -386,8 +390,8 @@ function ProvidersGapPanel({ rows }: { rows: ProviderGapRow[] }) {
               <TableHead>Service category</TableHead>
               <TableHead className="text-right">Service providers</TableHead>
               <TableHead className="text-right">
-                Can service upto
-                <span className="block text-[10px] font-normal text-muted-foreground">count of seekers</span>
+                Strong matches
+                <span className="block text-[10px] font-normal text-muted-foreground">high-confidence</span>
               </TableHead>
               <TableHead className="text-right">Matching seekers</TableHead>
               <TableHead className="text-right">Connected seekers</TableHead>
@@ -404,13 +408,13 @@ function ProvidersGapPanel({ rows }: { rows: ProviderGapRow[] }) {
               <TableRow key={r.category}>
                 <TableCell className="font-medium">{r.category}</TableCell>
                 <TableCell className="text-right tabular-nums">{fmt(r.providers)}</TableCell>
-                <TableCell className="text-right"><Cell value={r.capacity} /></TableCell>
+                <TableCell className="text-right"><Cell value={r.strongMatches} /></TableCell>
                 <TableCell className="text-right"><Cell value={r.matching} /></TableCell>
                 <TableCell className="text-right tabular-nums">{fmt(r.connectedSeekers)}</TableCell>
                 <TableCell className="text-right"><GapNumber value={r.actionGap} /></TableCell>
                 <TableCell><LevelBadge level={r.agL} /></TableCell>
-                <TableCell className="text-right"><Cell value={null} red /></TableCell>
-                <TableCell><span className="text-muted-foreground">—</span></TableCell>
+                <TableCell className="text-right"><Cell value={r.demandSupplyGap} red /></TableCell>
+                <TableCell>{r.dsL !== null ? <LevelBadge level={r.dsL} /> : <span className="text-muted-foreground">—</span>}</TableCell>
                 <TableCell><Actions items={r.actions} /></TableCell>
                 <TableCell>
                   <Button
@@ -453,7 +457,9 @@ function SeekersGapPanel({ rows }: { rows: SeekerGapRow[] }) {
 
   const enriched = rows.map((r) => {
     const agL = gapLevel(r.actionGap, r.demand);
-    return { ...r, agL, actions: recommendedActions("seeker", agL, "Low") };
+    const dsL: GapLevelLabel | null =
+      r.demandSupplyGap === null ? null : gapLevel(r.demandSupplyGap, r.demand);
+    return { ...r, agL, dsL, actions: recommendedActions("seeker", agL, dsL ?? "Low") };
   });
 
   const filtered = enriched.filter(
@@ -490,7 +496,11 @@ function SeekersGapPanel({ rows }: { rows: SeekerGapRow[] }) {
                 Can reach upto
                 <span className="block text-[10px] font-normal text-muted-foreground">seekers wanting this</span>
               </TableHead>
-              <TableHead className="text-right">Matching providers</TableHead>
+              <TableHead className="text-right">
+                Strong matches
+                <span className="block text-[10px] font-normal text-muted-foreground">high-confidence</span>
+              </TableHead>
+              <TableHead className="text-right">Matching seekers</TableHead>
               <TableHead className="text-right">Connected seekers</TableHead>
               <TableHead className="text-right">Action gap</TableHead>
               <TableHead>Action gap level</TableHead>
@@ -506,12 +516,13 @@ function SeekersGapPanel({ rows }: { rows: SeekerGapRow[] }) {
                 <TableCell className="font-medium">{r.area}</TableCell>
                 <TableCell className="text-right tabular-nums">{fmt(r.aggregators)}</TableCell>
                 <TableCell className="text-right tabular-nums">{fmt(r.reach)}</TableCell>
+                <TableCell className="text-right"><Cell value={r.strongMatches} /></TableCell>
                 <TableCell className="text-right"><Cell value={r.matching} /></TableCell>
                 <TableCell className="text-right tabular-nums">{fmt(r.connectedSeekers)}</TableCell>
                 <TableCell className="text-right"><GapNumber value={r.actionGap} /></TableCell>
                 <TableCell><LevelBadge level={r.agL} /></TableCell>
-                <TableCell className="text-right"><Cell value={null} red /></TableCell>
-                <TableCell><span className="text-muted-foreground">—</span></TableCell>
+                <TableCell className="text-right"><Cell value={r.demandSupplyGap} red /></TableCell>
+                <TableCell>{r.dsL !== null ? <LevelBadge level={r.dsL} /> : <span className="text-muted-foreground">—</span>}</TableCell>
                 <TableCell><Actions items={r.actions} /></TableCell>
                 <TableCell>
                   <Button
@@ -528,7 +539,7 @@ function SeekersGapPanel({ rows }: { rows: SeekerGapRow[] }) {
             ))}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                   No needs match these filters.
                 </TableCell>
               </TableRow>

@@ -21,12 +21,13 @@ export const fetchEcosystemOverview = createServerFn({ method: "GET" }).handler(
     if (accountError || !account?.active)
       throw new Error("Ecosystem access could not be verified. Please sign in again.");
     const db = sbFor();
-    const [cats, types, tots] = await Promise.all([
+    const [cats, types, tots, matching] = await Promise.all([
       db.rpc("get_ecosystem_categories"),
       db.rpc("get_ecosystem_provider_types"),
       db.rpc("get_ecosystem_totals"),
+      db.rpc("get_ecosystem_matching"),
     ]);
-    for (const [name, r] of [["categories", cats], ["provider_types", types], ["totals", tots]] as const) {
+    for (const [name, r] of [["categories", cats], ["provider_types", types], ["totals", tots], ["matching", matching]] as const) {
       if (r.error) {
         console.error(`[ecosystem] RPC get_ecosystem_${name} failed`, { code: r.error.code, message: r.error.message });
         throw new Error("The live ecosystem query failed. Please retry.");
@@ -34,13 +35,22 @@ export const fetchEcosystemOverview = createServerFn({ method: "GET" }).handler(
     }
     const t = tots.data?.[0];
     if (!t) throw new Error("The live ecosystem totals are missing. This is a loading problem, not an empty network.");
+    const matchesByCategory = new Map<string, Record<string, unknown>>(
+      (matching.data ?? []).map((r: Record<string, unknown>) => [String(r.category), r]),
+    );
     return {
-      categories: (cats.data ?? []).map((r: Record<string, unknown>) => ({
+      categories: (cats.data ?? []).map((r: Record<string, unknown>) => {
+        const match = matchesByCategory.get(String(r.category));
+        return {
         category: String(r.category),
         seekersWanting: Number(r.seekers_wanting) || 0,
         providersOffering: Number(r.providers_offering) || 0,
         connectedSeekers: Number(r.connected_seekers ?? r.connections) || 0,
-      })),
+        matchedSeekers: match?.matched_seekers == null ? null : Number(match.matched_seekers),
+        strongMatches: match?.high_seekers == null ? null : Number(match.high_seekers),
+        matchesComputedAt: match?.computed_at ? String(match.computed_at) : null,
+        };
+      }),
       providerTypes: (types.data ?? []).map((r: Record<string, unknown>) => ({
         providerType: String(r.provider_type),
         providers: Number(r.providers) || 0,

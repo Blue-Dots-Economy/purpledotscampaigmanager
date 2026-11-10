@@ -1,17 +1,19 @@
 // Live Ecosystem View data mapping — pure functions, no server imports.
 // Source: Purple RPCs get_ecosystem_categories / get_ecosystem_provider_types /
-// get_ecosystem_totals, fetched in ecosystem.functions.ts.
+// get_ecosystem_totals / get_ecosystem_matching, fetched in ecosystem.functions.ts.
+// Matching has a live source; null counts mean match data is not loaded.
 //
 // Fields with no live source are null (rendered as "—"), never fabricated:
 // - capacity (no record of how many people a provider can serve)
-// - matching (the old synthetic overlap figure; its real equivalent is the
-//   seekers_wanting vs providers_offering comparison already in the rows)
 
 export interface EcosystemCategory {
   category: string;
   seekersWanting: number;
   providersOffering: number;
   connectedSeekers: number;
+  matchedSeekers: number | null;
+  strongMatches: number | null;
+  matchesComputedAt: string | null;
 }
 
 export interface EcosystemProviderType {
@@ -45,11 +47,22 @@ export interface EcosystemOverview {
 export const unconnectedDemand = (c: EcosystemCategory): number =>
   Math.max(0, c.seekersWanting - c.connectedSeekers);
 
+/** Demand a provider cannot meet well: seekers wanting a service with no
+ *  high-confidence match available. Null while match data is not loaded. */
+export const unmatchedDemand = (c: EcosystemCategory): number | null =>
+  c.strongMatches === null ? null : Math.max(0, c.seekersWanting - c.strongMatches);
+
+export function totalUnmatchedDemand(categories: EcosystemCategory[]): number | null {
+  if (categories.some((c) => c.strongMatches === null)) return null;
+  return categories.reduce((a, c) => a + (unmatchedDemand(c) ?? 0), 0);
+}
+
 export interface ProviderGapRow {
   category: string;
   providers: number;
-  capacity: null; // no live source — renders "—"
-  matching: null; // no live source — renders "—"
+  strongMatches: number | null;
+  matching: number | null;
+  demandSupplyGap: number | null;
   connectedSeekers: number;
   /** Real demand behind the action gap and its level (not shown as "Matching"). */
   demand: number;
@@ -62,7 +75,9 @@ export interface SeekerGapRow {
   aggregators: number;
   /** Seekers wanting this category. */
   reach: number;
-  matching: null; // no live source — renders "—"
+  matching: number | null;
+  strongMatches: number | null;
+  demandSupplyGap: number | null;
   connectedSeekers: number;
   /** Same as reach; kept separate so gap levels are computed on demand. */
   demand: number;
@@ -73,8 +88,9 @@ export function toProviderGapRows(categories: EcosystemCategory[]): ProviderGapR
   return categories.map((c) => ({
     category: c.category,
     providers: c.providersOffering,
-    capacity: null,
-    matching: null,
+    strongMatches: c.strongMatches,
+    matching: c.matchedSeekers,
+    demandSupplyGap: unmatchedDemand(c),
     connectedSeekers: c.connectedSeekers,
     demand: c.seekersWanting,
     actionGap: unconnectedDemand(c),
@@ -86,7 +102,9 @@ export function toSeekerGapRows(categories: EcosystemCategory[]): SeekerGapRow[]
     area: c.category,
     aggregators: c.providersOffering,
     reach: c.seekersWanting,
-    matching: null,
+    matching: c.matchedSeekers,
+    strongMatches: c.strongMatches,
+    demandSupplyGap: unmatchedDemand(c),
     connectedSeekers: c.connectedSeekers,
     demand: c.seekersWanting,
     actionGap: unconnectedDemand(c),
