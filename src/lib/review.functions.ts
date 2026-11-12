@@ -40,55 +40,97 @@ async function resolveSheet(
   return { sheet_id: pick.sheet_id, tab_name: pick.tab_name ?? null };
 }
 
-export const fetchReviewCalls = createServerFn({ method: "GET" })
-  .inputValidator((data: { dataset: ReviewDataset }) => data)
-  .handler(async ({ data }): Promise<Array<Record<string, string>>> => {
-    const client = await sb();
-    const cols = "call_id, campaign_day, campaign_date, campaign_type, language, city_campaign, call_outcome, call_duration_seconds, intent_score, drop_reason, job_status, phone, channel, data";
-    const rows: Record<string, unknown>[] = [];
-    let _from = 0;
-    while (true) {
-      const { data: batch, error } = await client
-        .from("call_rows")
-        .select(cols)
-        .eq("program", data.dataset)
-        .order("call_id", { ascending: true })
-        .range(_from, _from + 999);
-      if (error) throw new Error(error.message);
-      const b = (batch ?? []) as Record<string, unknown>[];
-      rows.push(...b);
-      if (b.length === 0 || rows.length >= 100000) break;
-      _from += b.length;
+const REVIEW_COLS = "call_id, campaign_day, campaign_date, campaign_type, language, city_campaign, call_outcome, call_duration_seconds, intent_score, drop_reason, job_status, phone, channel, data";
+/** List variant: REVIEW_COLS minus the fat `data` jsonb. Selecting `data` forces
+ * Postgres to detoast every transcript just to build a list → the Review hub
+ * times out against the pipeline matview. Detail fetches keep `data`. */
+const REVIEW_LIST_COLS = "call_id, campaign_day, campaign_date, campaign_type, language, city_campaign, call_outcome, call_duration_seconds, intent_score, drop_reason, job_status, phone, channel";
+
+/** A server-function response is capped at 16 MB by the framework, and the whole
+ * list is ~36 MB even without `data` — so the list is returned one slice at a
+ * time and stitched together client-side (see useReviewCalls). */
+const LIST_PAGE = 1000;
+const MAX_LIST_ROWS = 100000;
+
+export interface ReviewCallsPage {
+  rows: Array<Record<string, string>>;
+  total: number;
+  offset: number;
+}
+
+function mapReviewRow(r: Record<string, unknown>): Record<string, string> {
+  const d = (r.data ?? {}) as Record<string, unknown>;
+  const raw = (d.raw ?? {}) as Record<string, unknown>;
+  const pick = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = (d as Record<string, unknown>)[k] ?? (raw as Record<string, unknown>)[k];
+      if (v !== undefined && v !== null && String(v) !== "") return String(v);
     }
-    return rows.map((r: Record<string, unknown>) => {
-      const d = (r.data ?? {}) as Record<string, unknown>;
-      const raw = (d.raw ?? {}) as Record<string, unknown>;
-      const pick = (...keys: string[]) => {
-        for (const k of keys) {
-          const v = (d as Record<string, unknown>)[k] ?? (raw as Record<string, unknown>)[k];
-          if (v !== undefined && v !== null && String(v) !== "") return String(v);
-        }
-        return "";
-      };
-      return {
-        call_id: r.call_id != null ? String(r.call_id) : "",
-        job_id: pick("job_id"),
-        
-        campaign_day: r.campaign_day != null ? String(r.campaign_day) : "",
-        campaign_date: r.campaign_date != null ? String(r.campaign_date) : "",
-        campaign_type: r.campaign_type != null ? String(r.campaign_type) : "",
-        language: r.language != null ? String(r.language) : "",
-        city_campaign: r.city_campaign != null ? String(r.city_campaign) : "",
-        call_outcome: r.call_outcome != null ? String(r.call_outcome) : "",
-        call_duration_seconds: r.call_duration_seconds != null ? String(r.call_duration_seconds) : "",
-        call_datetime_ist: pick("call_datetime_ist"),
-        intent_score: r.intent_score != null ? String(r.intent_score) : "",
-        drop_reason: r.drop_reason != null ? String(r.drop_reason) : "",
-        job_status: r.job_status != null ? String(r.job_status) : "",
-        channel: r.channel != null ? String(r.channel) : "outbound",
-        call_recording_url: "",
-      } as Record<string, string>;
-    });
+    return "";
+  };
+  return {
+    call_id: r.call_id != null ? String(r.call_id) : "",
+    job_id: pick("job_id"),
+
+    campaign_day: r.campaign_day != null ? String(r.campaign_day) : "",
+    campaign_date: r.campaign_date != null ? String(r.campaign_date) : "",
+    campaign_type: r.campaign_type != null ? String(r.campaign_type) : "",
+    language: r.language != null ? String(r.language) : "",
+    city_campaign: r.city_campaign != null ? String(r.city_campaign) : "",
+    call_outcome: r.call_outcome != null ? String(r.call_outcome) : "",
+    call_duration_seconds: r.call_duration_seconds != null ? String(r.call_duration_seconds) : "",
+    call_datetime_ist: pick("call_datetime_ist"),
+    intent_score: r.intent_score != null ? String(r.intent_score) : "",
+    drop_reason: r.drop_reason != null ? String(r.drop_reason) : "",
+    job_status: r.job_status != null ? String(r.job_status) : "",
+    channel: r.channel != null ? String(r.channel) : "outbound",
+    call_recording_url: "",
+  };
+}
+
+export const fetchReviewCalls = createServerFn({ method: "GET" })
+  .inputValidator((data: { dataset: ReviewDataset; offset?: number; limit?: number }) => data)
+  .handler(async ({ data }): Promise<ReviewCallsPage> => {
+    const client = await sb();
+    const offset = Math.max(0, Math.floor(data.offset ?? 0));
+    const limit = Math.min(Math.max(1, Math.floor(data.limit ?? LIST_PAGE)), MAX_LIST_ROWS);
+    const { data: batch, error, count } = await client
+      .from("call_rows")
+      .select(REVIEW_LIST_COLS, { count: "exact" })
+      .eq("program", data.dataset)
+      // id is unique so offset slices are stable; call_id is not.
+      .order("id", { ascending: true })
+      .range(offset, offset + limit - 1);
+    if (error) throw new Error(error.message);
+    const rows = ((batch ?? []) as unknown as Array<Record<string, unknown>>).map(mapReviewRow);
+    return { rows, total: count ?? offset + rows.length, offset };
+  });
+
+/** Single-call fetch for the transcript review page — avoids loading the whole table. */
+export const fetchReviewCall = createServerFn({ method: "GET" })
+  .inputValidator((data: { dataset: ReviewDataset; callId: string }) => data)
+  .handler(async ({ data }): Promise<Record<string, string> | null> => {
+    const client = await sb();
+    const { data: row, error } = await client
+      .from("call_rows")
+      .select(REVIEW_COLS)
+      .eq("program", data.dataset)
+      .eq("call_id", data.callId)
+      .maybeSingle();
+    // call_rows can hold >1 row per call_id; maybeSingle errors on multiples, so
+    // fall back to a bounded read instead of blanking the page.
+    if (error) {
+      const { data: rows } = await client
+        .from("call_rows")
+        .select(REVIEW_COLS)
+        .eq("program", data.dataset)
+        .eq("call_id", data.callId)
+        .limit(1);
+      const first = (rows ?? [])[0] as Record<string, unknown> | undefined;
+      return first ? mapReviewRow(first) : null;
+    }
+    if (!row) return null;
+    return mapReviewRow(row as unknown as Record<string, unknown>);
   });
 
 export const fetchCallDetail = createServerFn({ method: "GET" })

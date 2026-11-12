@@ -22,6 +22,10 @@ export const Route = createFileRoute("/review")({
   ] }),
 });
 
+const NON_REVIEWABLE_OUTCOMES = new Set([
+  "unanswered", "no answer", "pending", "failure", "not dialled (batch incomplete)", "dialing",
+]);
+
 const OUTCOME_OPTIONS = ["All", "Completed", "Early Disconnect"];
 const DURATION_OPTIONS = ["All", "< 30s", "30s – 1m", "1 – 2m", "2 – 5m", "> 5m"];
 const INTENT_OPTIONS = ["All", "High Intent Score", "Low Intent Score"];
@@ -129,7 +133,7 @@ function ReviewHub() {
   }, [calls]);
 
   const baseSet = useMemo(() => {
-    return (calls ?? []).filter((c) => c.call_outcome === "Completed" || c.call_outcome === "Early Disconnect");
+    return (calls ?? []).filter((c) => !NON_REVIEWABLE_OUTCOMES.has(String(c.call_outcome || "").trim().toLowerCase()));
   }, [calls]);
 
   const searchTokens = useMemo(() =>
@@ -138,6 +142,7 @@ function ReviewHub() {
 
   const filtered = useMemo(() => {
     const rows = baseSet.filter((c) => {
+      if (NON_REVIEWABLE_OUTCOMES.has(String(c.call_outcome || "").trim().toLowerCase())) return false;
       if (filters.day !== "All" && c.campaign_day !== filters.day) return false;
       if (filters.date.length > 0 && !filters.date.includes(c.campaign_date)) return false;
       if (filters.campaign !== "All" && c.campaign_type !== filters.campaign) return false;
