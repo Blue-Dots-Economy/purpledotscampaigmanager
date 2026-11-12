@@ -52,44 +52,5 @@ export const resolveLogin = createServerFn({ method: "POST" })
       console.error("[auth] app_user_login threw:", e instanceof Error ? e.message : String(e));
       return { role: null, fault: true };
     }
-    try {
-      const { data: r, error } = await client.from("reviewers").select("email").eq("email", email).maybeSingle();
-      if (error) {
-        console.error("[auth] reviewers fallback query failed:", { message: error.message, code: error.code, details: error.details, hint: error.hint });
-        return { role: null, fault: true };
-      }
-      if (r) {
-        await establishSessionSafely(email);
-        return { role: "user" };
-      }
-    } catch (e) {
-      console.error("[auth] reviewers fallback query threw:", e instanceof Error ? e.message : String(e));
-      return { role: null, fault: true };
-    }
     return { role: null };
-  });
-
-export const listReviewers = createServerFn({ method: "GET" })
-  .handler(async (): Promise<string[]> => {
-    try {
-      const { data } = await (await sb()).from("reviewers").select("email").order("email");
-      return (data ?? []).map((r: { email: string }) => r.email);
-    } catch { return []; }
-  });
-
-export const addReviewer = createServerFn({ method: "POST" })
-  .inputValidator((d: { email: string }) => d)
-  .handler(async ({ data }): Promise<{ ok: boolean }> => {
-    const email = (data.email || "").trim().toLowerCase();
-    if (!email) return { ok: false };
-    try { await (await sb()).from("reviewers").upsert({ email }, { onConflict: "email" }); return { ok: true }; }
-    catch { return { ok: false }; }
-  });
-
-export const removeReviewer = createServerFn({ method: "POST" })
-  .inputValidator((d: { email: string }) => d)
-  .handler(async ({ data }): Promise<{ ok: boolean }> => {
-    const email = (data.email || "").trim().toLowerCase();
-    try { await (await sb()).from("reviewers").delete().eq("email", email); return { ok: true }; }
-    catch { return { ok: false }; }
   });
