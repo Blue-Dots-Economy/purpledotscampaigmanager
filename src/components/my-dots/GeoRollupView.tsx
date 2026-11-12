@@ -124,12 +124,12 @@ function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle, sig, drillD
   </TableShell>
     {drillDepth !== undefined && <Dialog open={!!drill} onOpenChange={o => { if (!o) setDrill(null); }}>
       <DialogContent className="max-w-4xl max-h-[85dvh] overflow-y-auto" onCloseAutoFocus={e => { e.preventDefault(); drillTrigger.current?.focus(); }}>
-        <DialogHeader>
+        <DialogHeader className="min-w-0 break-words">
           <DialogTitle>{drill?.node.label}{drill?.node.coordinatorType ? ` · ${drill.node.coordinatorType}` : ""}</DialogTitle>
           <DialogDescription>{drill ? `${drill.organisation} · ${drill.node.total.toLocaleString()} participants · ${drill.node.avgCompletion}% complete` : ""}</DialogDescription>
         </DialogHeader>
         {drill && (drill.node.children.length ?
-          <GeoTable key={drill.node.id} title="States · districts" first="State" nodes={drill.node.children} sortKey={sortKey} sortDir={sortDir} onToggle={onToggle} sig={sig} /> :
+          <div className="min-w-0 overflow-x-auto"><GeoTable key={drill.node.id} title="States · districts" first="State" nodes={drill.node.children} sortKey={sortKey} sortDir={sortDir} onToggle={onToggle} sig={sig} /></div> :
           <p className="text-sm text-muted-foreground">No state or district details available.</p>)}
       </DialogContent>
     </Dialog>}
