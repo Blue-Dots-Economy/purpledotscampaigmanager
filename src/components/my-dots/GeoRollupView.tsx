@@ -10,7 +10,7 @@ import { useProfileSignal } from "@/hooks/useProfileSignal";
 import { canSeeProfileSignal, matchFor, type SignalCounts, type SignalFilter } from "@/lib/profile-signal";
 import { filterLabel, pct, ProfileSignalFilter } from "./ProfileSignalFilter";
 
-type SortKey = "total" | "located" | "avgCompletion" | "belowThreshold";
+type SortKey = "total" | "avgCompletion" | "belowThreshold";
 const INDENT = ["", "pl-12", "pl-20", "pl-28"];
 const ICON = { org: Building2, coordinator: UserRound, state: MapPinned, district: MapPin } as const;
 const COVERAGE_NOTE = "Location is recorded for only part of the data; unlocated profiles are shown as “Location not recorded”, not dropped.";
@@ -81,7 +81,6 @@ function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle, sig }: { ti
           </button>
         </TableCell>
         <TableCell className="text-right tabular-nums">{n.total.toLocaleString()}</TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{n.located.toLocaleString()} of {n.total.toLocaleString()} located{n.total ? ` (${((n.located / n.total) * 100).toFixed(1)}%)` : ""}</TableCell>
         <TableCell className="text-right tabular-nums">{n.draft.toLocaleString()}</TableCell>
         <TableCell className="text-right tabular-nums">{n.live.toLocaleString()}</TableCell>
         <TableCell className="text-right tabular-nums">{n.retired.toLocaleString()}</TableCell>
@@ -96,7 +95,6 @@ function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle, sig }: { ti
       <TableHeader><TableRow>
         <TableHead className={HEAD_LABEL}>{first}</TableHead>
         <TableHead className="text-right"><SortBtn k="total" sortKey={sortKey} onToggle={onToggle}>Participants</SortBtn></TableHead>
-        <TableHead className="text-right"><SortBtn k="located" sortKey={sortKey} onToggle={onToggle}>Coverage</SortBtn></TableHead>
         <TableHead className={`text-right ${HEAD_LABEL}`}>Draft</TableHead>
         <TableHead className={`text-right ${HEAD_LABEL}`}>Live</TableHead>
         <TableHead className={`text-right ${HEAD_LABEL}`}>Retired</TableHead>
