@@ -1,8 +1,8 @@
-import { Component, Fragment, useRef, useState, type ReactNode } from "react";
+import { Component, Fragment, useMemo, useRef, useState, type ReactNode } from "react";
 import { Building2, ChevronRight, MapPin, MapPinned, UserRound } from "lucide-react";
 import { useGeoRollup } from "@/hooks/useGeoRollup";
 import type { ParticipantDomain } from "@/lib/participant-rollup";
-import type { GeoNode } from "@/lib/geo-rollup";
+import { coordinatorLabel, labelCoordinators, type CoordinatorLabel, type GeoNode } from "@/lib/geo-rollup";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -68,6 +68,22 @@ function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle, sig, drillD
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [drill, setDrill] = useState<{ node: GeoNode; organisation: string } | null>(null);
   const drillTrigger = useRef<HTMLTableRowElement | null>(null);
+  const coordinatorLabels = useMemo(() => {
+    const labels = new Map<string, CoordinatorLabel>();
+    const visit = (list: GeoNode[]) => {
+      for (const node of list) {
+        if (node.kind === "org") {
+          for (const [id, label] of labelCoordinators(node.children.filter(child => child.kind === "coordinator"))) labels.set(id, label);
+        } else if (node.kind === "coordinator" && !labels.has(node.id)) {
+          labels.set(node.id, coordinatorLabel(node));
+        }
+        visit(node.children);
+      }
+    };
+    visit(nodes);
+    return labels;
+  }, [nodes]);
+  const drillLabel = drill ? coordinatorLabels.get(drill.node.id) : undefined;
   const flip = (id: string) => setOpen(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const sorted = (list: GeoNode[]) => [...list].sort((a, b) => (a[sortKey] - b[sortKey]) * sortDir);
   const render = (list: GeoNode[], depth: number, parent?: GeoNode): ReactNode => sorted(list).map(n => {
@@ -75,10 +91,13 @@ function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle, sig, drillD
     const opensDialog = drillDepth !== undefined && depth === drillDepth;
     const expandable = n.children.length > 0;
     const isOpen = open.has(n.id);
+    const inferred = coordinatorLabels.get(n.id);
+    const displayLabel = inferred?.label ?? n.label;
     const label = <>
       <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${!opensDialog && isOpen ? "rotate-90" : ""} ${opensDialog || expandable ? "" : "invisible"}`} />
-      <Icon className="h-4 w-4 text-muted-foreground" />{n.label}
+      <Icon className="h-4 w-4 text-muted-foreground" />{displayLabel}
       {n.coordinatorType && <span className="text-xs font-normal text-muted-foreground">{n.coordinatorType}</span>}
+      {inferred?.share != null && <span className="text-xs font-normal text-muted-foreground">{Math.round(inferred.share * 100)}%</span>}
     </>;
     const showDrill = (trigger: HTMLTableRowElement) => {
       drillTrigger.current = trigger;
@@ -90,13 +109,13 @@ function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle, sig, drillD
         role={opensDialog ? "button" : undefined}
         tabIndex={opensDialog ? 0 : undefined}
         aria-haspopup={opensDialog ? "dialog" : undefined}
-        aria-label={opensDialog ? `Open coordinator ${n.label}${n.coordinatorType ? ` · ${n.coordinatorType}` : ""}` : undefined}
+        aria-label={opensDialog ? `Open coordinator ${displayLabel}${n.coordinatorType ? ` · ${n.coordinatorType}` : ""}${inferred?.share != null ? ` · ${Math.round(inferred.share * 100)}%` : ""}` : undefined}
         onClick={opensDialog ? e => showDrill(e.currentTarget) : undefined}
         onKeyDown={opensDialog ? e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showDrill(e.currentTarget); } } : undefined}
       >
         <TableCell className={INDENT[depth]}>
-          {opensDialog ? <span className="inline-flex items-center gap-2 text-left font-medium">{label}</span> :
-            <button type="button" disabled={!expandable} aria-expanded={expandable ? isOpen : undefined} onClick={() => flip(n.id)} className="inline-flex items-center gap-2 text-left font-medium disabled:cursor-default">{label}</button>}
+          {opensDialog ? <span title={inferred?.code} className="inline-flex items-center gap-2 text-left font-medium">{label}</span> :
+            <button type="button" title={inferred?.code} disabled={!expandable} aria-expanded={expandable ? isOpen : undefined} onClick={() => flip(n.id)} className="inline-flex items-center gap-2 text-left font-medium disabled:cursor-default">{label}</button>}
         </TableCell>
         <TableCell className="text-right tabular-nums">{n.total.toLocaleString()}</TableCell>
         <TableCell className="text-right tabular-nums">{n.draft.toLocaleString()}</TableCell>
@@ -125,7 +144,7 @@ function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle, sig, drillD
     {drillDepth !== undefined && <Dialog open={!!drill} onOpenChange={o => { if (!o) setDrill(null); }}>
       <DialogContent className="max-w-4xl max-h-[85dvh] overflow-y-auto" onCloseAutoFocus={e => { e.preventDefault(); drillTrigger.current?.focus(); }}>
         <DialogHeader className="min-w-0 break-words">
-          <DialogTitle>{drill?.node.label}{drill?.node.coordinatorType ? ` · ${drill.node.coordinatorType}` : ""}</DialogTitle>
+          <DialogTitle title={drillLabel?.code}>{drillLabel?.label ?? drill?.node.label}{drill?.node.coordinatorType ? ` · ${drill.node.coordinatorType}` : ""}{drillLabel?.share != null && <span className="ml-2 text-xs font-normal text-muted-foreground">{Math.round(drillLabel.share * 100)}%</span>}</DialogTitle>
           <DialogDescription>{drill ? `${drill.organisation} · ${drill.node.total.toLocaleString()} participants · ${drill.node.avgCompletion}% complete` : ""}</DialogDescription>
         </DialogHeader>
         {drill && (drill.node.children.length ?

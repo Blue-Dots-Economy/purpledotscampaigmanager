@@ -12,6 +12,41 @@ export const LOCATION_NOT_RECORDED = "Location not recorded";
 export type GeoMetrics = { total: number; live: number; draft: number; retired: number; located: number; avgCompletion: number; belowThreshold: number };
 export type GeoNode = GeoMetrics & { id: string; label: string; kind: "org" | "coordinator" | "state" | "district"; coordinatorType?: string; children: GeoNode[] };
 
+export type CoordinatorLabel = {
+  /** State name, Mixed, or the original code when no location is known. */
+  label: string;
+  /** Share of located participants in the largest state; null when not inferred. */
+  share: number | null;
+  /** Original coordinator_code, retained for hover identification. */
+  code: string;
+};
+
+export function coordinatorLabel(node: GeoNode): CoordinatorLabel {
+  const code = node.label;
+  const states = node.children.filter(child => child.kind === "state" && child.label !== LOCATION_NOT_RECORDED);
+  if (node.located === 0 || !states.length) return { label: code, share: null, code };
+  const top = states.reduce((largest, child) => child.total > largest.total ? child : largest);
+  const share = top.total / node.located;
+  return { label: share < 0.6 ? "Mixed" : top.label, share, code };
+}
+
+export function labelCoordinators(coordinators: GeoNode[]): Map<string, CoordinatorLabel> {
+  const labels = coordinators.map(node => ({ id: node.id, ...coordinatorLabel(node) }));
+  const totals = new Map<string, number>();
+  for (const entry of labels) {
+    if (entry.share !== null) totals.set(entry.label, (totals.get(entry.label) ?? 0) + 1);
+  }
+  const seen = new Map<string, number>();
+  return new Map(labels.map(({ id, ...entry }) => {
+    if (entry.share !== null && (totals.get(entry.label) ?? 0) > 1) {
+      const index = (seen.get(entry.label) ?? 0) + 1;
+      seen.set(entry.label, index);
+      return [id, { ...entry, label: `${entry.label} ${index}` }];
+    }
+    return [id, entry];
+  }));
+}
+
 export function scopeGeoRows(rows: GeoRollupRow[], domain: ParticipantDomain, organisation: string | null): GeoRollupRow[] {
   const scoped = rows.filter(r => r.domain === domain && (!organisation || r.org_name === organisation));
   if (!scoped.length) throw new Error("No geography rollup rows were returned for this account and programme. This is a data-loading problem, not confirmation of zero participants.");
