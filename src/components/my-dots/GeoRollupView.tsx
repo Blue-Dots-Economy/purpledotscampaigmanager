@@ -1,10 +1,11 @@
-import { Component, Fragment, useState, type ReactNode } from "react";
+import { Component, Fragment, useRef, useState, type ReactNode } from "react";
 import { Building2, ChevronRight, MapPin, MapPinned, UserRound } from "lucide-react";
 import { useGeoRollup } from "@/hooks/useGeoRollup";
 import type { ParticipantDomain } from "@/lib/participant-rollup";
 import type { GeoNode } from "@/lib/geo-rollup";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ActivityCell, HEAD_LABEL, SectionLabel, SortBtn, StatCard, TableShell } from "./shared";
 import { useProfileSignal } from "@/hooks/useProfileSignal";
 import { canSeeProfileSignal, matchFor, type SignalCounts, type SignalFilter } from "@/lib/profile-signal";
@@ -50,7 +51,7 @@ export function GeoRollupView({ actor, domain }: { actor: string; domain: Partic
     <Tabs defaultValue="org">
       <TabsList><TabsTrigger value="org">By organisation</TabsTrigger><TabsTrigger value="geo">By geography</TabsTrigger></TabsList>
       <TabsContent value="org" className="space-y-2">
-        <GeoTable title="Organisations · coordinators · locations" first="Organisation" nodes={data.byOrganisation} sortKey={sortKey} sortDir={sortDir} onToggle={toggle} sig={sig} />
+        <GeoTable title="Organisations · coordinators · locations" first="Organisation" nodes={data.byOrganisation} sortKey={sortKey} sortDir={sortDir} onToggle={toggle} sig={sig} drillDepth={1} />
         <p className="text-xs text-muted-foreground">{COVERAGE_NOTE}</p>
       </TabsContent>
       <TabsContent value="geo" className="space-y-2">
@@ -63,22 +64,39 @@ export function GeoRollupView({ actor, domain }: { actor: string; domain: Partic
 
 type SigState = "ready" | "loading" | "error";
 type Sig = { filter: SignalFilter | null; counts: SignalCounts; state: SigState };
-function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle, sig }: { title: string; first: string; nodes: GeoNode[]; sortKey: SortKey; sortDir: 1 | -1; onToggle: (k: SortKey) => void; sig?: Sig }) {
+function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle, sig, drillDepth }: { title: string; first: string; nodes: GeoNode[]; sortKey: SortKey; sortDir: 1 | -1; onToggle: (k: SortKey) => void; sig?: Sig; drillDepth?: number }) {
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const [drill, setDrill] = useState<{ node: GeoNode; organisation: string } | null>(null);
+  const drillTrigger = useRef<HTMLTableRowElement | null>(null);
   const flip = (id: string) => setOpen(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const sorted = (list: GeoNode[]) => [...list].sort((a, b) => (a[sortKey] - b[sortKey]) * sortDir);
-  const render = (list: GeoNode[], depth: number): ReactNode => sorted(list).map(n => {
+  const render = (list: GeoNode[], depth: number, parent?: GeoNode): ReactNode => sorted(list).map(n => {
     const Icon = ICON[n.kind];
+    const opensDialog = drillDepth !== undefined && depth === drillDepth;
     const expandable = n.children.length > 0;
     const isOpen = open.has(n.id);
+    const label = <>
+      <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${!opensDialog && isOpen ? "rotate-90" : ""} ${opensDialog || expandable ? "" : "invisible"}`} />
+      <Icon className="h-4 w-4 text-muted-foreground" />{n.label}
+      {n.coordinatorType && <span className="text-xs font-normal text-muted-foreground">{n.coordinatorType}</span>}
+    </>;
+    const showDrill = (trigger: HTMLTableRowElement) => {
+      drillTrigger.current = trigger;
+      setDrill({ node: n, organisation: parent?.label ?? "" });
+    };
     return <Fragment key={n.id}>
-      <TableRow>
+      <TableRow
+        className={opensDialog ? "cursor-pointer hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" : undefined}
+        role={opensDialog ? "button" : undefined}
+        tabIndex={opensDialog ? 0 : undefined}
+        aria-haspopup={opensDialog ? "dialog" : undefined}
+        aria-label={opensDialog ? `Open coordinator ${n.label}${n.coordinatorType ? ` · ${n.coordinatorType}` : ""}` : undefined}
+        onClick={opensDialog ? e => showDrill(e.currentTarget) : undefined}
+        onKeyDown={opensDialog ? e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showDrill(e.currentTarget); } } : undefined}
+      >
         <TableCell className={INDENT[depth]}>
-          <button type="button" disabled={!expandable} aria-expanded={expandable ? isOpen : undefined} onClick={() => flip(n.id)} className="inline-flex items-center gap-2 text-left font-medium disabled:cursor-default">
-            <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? "rotate-90" : ""} ${expandable ? "" : "invisible"}`} />
-            <Icon className="h-4 w-4 text-muted-foreground" />{n.label}
-            {n.coordinatorType && <span className="text-xs font-normal text-muted-foreground">{n.coordinatorType}</span>}
-          </button>
+          {opensDialog ? <span className="inline-flex items-center gap-2 text-left font-medium">{label}</span> :
+            <button type="button" disabled={!expandable} aria-expanded={expandable ? isOpen : undefined} onClick={() => flip(n.id)} className="inline-flex items-center gap-2 text-left font-medium disabled:cursor-default">{label}</button>}
         </TableCell>
         <TableCell className="text-right tabular-nums">{n.total.toLocaleString()}</TableCell>
         <TableCell className="text-right tabular-nums">{n.draft.toLocaleString()}</TableCell>
@@ -87,10 +105,10 @@ function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle, sig }: { ti
         <TableCell>{sig?.filter ? <SignalCell node={n} sig={{ ...sig, filter: sig.filter }} /> : sig ? <SignalTagCell node={n} counts={sig.counts} state={sig.state} /> : <ActivityCell score={n.avgCompletion} suffix="%" />}</TableCell>
         <TableCell className="text-right tabular-nums">{n.belowThreshold.toLocaleString()}</TableCell>
       </TableRow>
-      {isOpen && render(n.children, depth + 1)}
+      {!opensDialog && isOpen && render(n.children, depth + 1, n)}
     </Fragment>;
   });
-  return <TableShell title={title} caption={sig?.filter ? `Expand rows to drill down · Completeness shows ${filterLabel(sig.filter)} profiles (draft + live)` : sig ? "Expand rows to drill down · tag shows the profile status most profiles in the row have" : "Expand rows to drill down · completeness is participant-weighted"}>
+  return <><TableShell title={title} caption={sig?.filter ? `Expand rows to drill down · Completeness shows ${filterLabel(sig.filter)} profiles (draft + live)` : sig ? "Expand rows to drill down · tag shows the profile status most profiles in the row have" : "Expand rows to drill down · completeness is participant-weighted"}>
     <Table>
       <TableHeader><TableRow>
         <TableHead className={HEAD_LABEL}>{first}</TableHead>
@@ -103,7 +121,19 @@ function GeoTable({ title, first, nodes, sortKey, sortDir, onToggle, sig }: { ti
       </TableRow></TableHeader>
       <TableBody>{render(nodes, 0)}</TableBody>
     </Table>
-  </TableShell>;
+  </TableShell>
+    {drillDepth !== undefined && <Dialog open={!!drill} onOpenChange={o => { if (!o) setDrill(null); }}>
+      <DialogContent className="max-w-4xl max-h-[85dvh] overflow-y-auto" onCloseAutoFocus={e => { e.preventDefault(); drillTrigger.current?.focus(); }}>
+        <DialogHeader>
+          <DialogTitle>{drill?.node.label}{drill?.node.coordinatorType ? ` · ${drill.node.coordinatorType}` : ""}</DialogTitle>
+          <DialogDescription>{drill ? `${drill.organisation} · ${drill.node.total.toLocaleString()} participants · ${drill.node.avgCompletion}% complete` : ""}</DialogDescription>
+        </DialogHeader>
+        {drill && (drill.node.children.length ?
+          <GeoTable key={drill.node.id} title="States · districts" first="State" nodes={drill.node.children} sortKey={sortKey} sortDir={sortDir} onToggle={onToggle} sig={sig} /> :
+          <p className="text-sm text-muted-foreground">No state or district details available.</p>)}
+      </DialogContent>
+    </Dialog>}
+  </>;
 }
 
 /** Replaces the completeness bar while a profile-status filter is applied. */
