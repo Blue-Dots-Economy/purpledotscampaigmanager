@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { fetchNeedsOverview } from "@/lib/needs.functions";
+import { coverageFor, isGrievance, needsFor, organisations } from "@/lib/needs-live";
 import { AlertTriangle, ChevronRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -128,9 +132,10 @@ function EcosystemView() {
   const [region] = useState<RegionValue>(NATIONAL_REGION);
   const query = useEcosystemOverview();
   const data = query.data ?? null;
+  const [activeTab, setActiveTab] = useState("providers");
 
   return (
-    <Tabs defaultValue="providers" className="space-y-6">
+    <Tabs defaultValue="providers" onValueChange={setActiveTab} className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex flex-wrap items-center gap-2">
           <RegionSelector value={region} onChange={() => {}} disabled />
@@ -157,6 +162,12 @@ function EcosystemView() {
             >
               Onboarding
             </TabsTrigger>
+            <TabsTrigger
+              value="needs"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              Needs
+            </TabsTrigger>
           </TabsList>
         </div>
         <div className="flex items-center gap-2">
@@ -178,7 +189,7 @@ function EcosystemView() {
         </div>
       </div>
 
-      {query.isPending ? (
+      {activeTab !== "needs" && (query.isPending ? (
         <Panel title="Loading live ecosystem data">
           <p className="py-8 text-center text-sm text-muted-foreground">
             Reading categories, provider types and totals from the live database…
@@ -222,9 +233,59 @@ function EcosystemView() {
             <OnboardingTab region={region} />
           </TabsContent>
         </>
-      )}
+      ))}
+      <TabsContent value="needs" className="space-y-6 mt-0">
+        <NeedsTab />
+      </TabsContent>
     </Tabs>
   );
+}
+
+function NeedsTab() {
+  const fetcher = useServerFn(fetchNeedsOverview);
+  const query = useQuery({ queryKey: ["ecosystem-needs"], queryFn: () => fetcher(), staleTime: 60_000, retry: false });
+  const [selected, setSelected] = useState<string | null>(null);
+  if (query.isPending) return <p className="py-8 text-sm text-muted-foreground">Reading live needs data…</p>;
+  if (query.isError) return <div role="alert" className="space-y-3">
+    <p className="text-sm text-muted-foreground">{query.error.message}</p>
+    <Button variant="outline" size="sm" onClick={() => void query.refetch()}>Retry</Button>
+  </div>;
+  const data = query.data;
+  const orgs = organisations(data);
+  const org = selected && orgs.includes(selected) ? selected : orgs[0];
+  if (!org) return <p className="text-sm text-muted-foreground">No profiles have been read yet.</p>;
+  const coverage = coverageFor(data, org);
+  const groups = needsFor(data, org);
+  const largest = Math.max(1, ...groups.flatMap(g => g.needs.map(n => n.seekers)));
+  return <div className="space-y-6">
+    <div className="flex flex-wrap items-center gap-2" aria-label="Needs organisation">
+      {orgs.map(name => <Button key={name} variant="outline" size="sm" aria-pressed={name === org}
+        className={`rounded-full text-xs ${name === org ? "bg-brand-soft text-brand border-brand/30" : ""}`}
+        onClick={() => setSelected(name)}>{name}</Button>)}
+    </div>
+    <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground tabular-nums">
+      {coverage ? `${fmt(coverage.profilesRead)} profiles read · ${fmt(coverage.profilesInPool)} have a stated need · ${fmt(coverage.seekersTotal)} seekers` : "Coverage counts unavailable for this organisation."}
+    </div>
+    {groups.length ? groups.map(group => <section key={group.category} className="space-y-3">
+      <h3 className="text-xs font-medium text-muted-foreground">{group.category}</h3>
+      <div className="space-y-3">
+        {group.needs.map((row, index) => {
+          const grievance = isGrievance(row.need);
+          return <div key={`${row.source}:${row.need}:${index}`} className="grid grid-cols-[minmax(0,1fr)_minmax(48px,1fr)_64px] sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_80px] items-center gap-3">
+            <div className="min-w-0 flex flex-wrap items-center gap-1.5 text-sm">
+              <span className="break-words">{row.need}</span>
+              {grievance && <Badge variant="outline" className="border-destructive/20 bg-destructive/10 text-destructive text-[10px]">grievance</Badge>}
+              {row.source !== "profile" && <span className="text-xs text-muted-foreground">{row.source}</span>}
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+              <div className={`h-full rounded-full ${grievance ? "bg-destructive" : "bg-brand"}`} style={{ width: `${row.seekers / largest * 100}%` }} />
+            </div>
+            <span className="text-right text-sm tabular-nums">{fmt(row.seekers)}</span>
+          </div>;
+        })}
+      </div>
+    </section>) : <p className="text-sm text-muted-foreground">No profiles have been read for this organisation yet.</p>}
+  </div>;
 }
 
 function TotalsRow({ data }: { data: EcosystemOverviewResult }) {
