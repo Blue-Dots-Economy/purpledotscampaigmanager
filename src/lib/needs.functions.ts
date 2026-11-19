@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import type { NeedPhrasing, NeedsOverview } from "./needs-live";
+import type { NeedDetail, NeedsOverview } from "./needs-live";
 
 async function verifiedDb() {
   const { resolveRequestIdentity } = await import("./campaign-session.server");
@@ -51,23 +51,27 @@ export const fetchNeedsOverview = createServerFn({ method: "GET" }).handler(asyn
   } catch (error) { fail(error); }
 });
 
-export const fetchNeedPhrasings = createServerFn({ method: "GET" })
+export const fetchNeedDetail = createServerFn({ method: "GET" })
   .inputValidator((d: { org: string; category: string }) => {
     if (typeof d?.org !== "string" || typeof d?.category !== "string" || !d.org || !d.category || d.org.length > 300 || d.category.length > 300)
       throw new Error("Invalid organisation or category.");
     return { org: d.org, category: d.category };
   })
-  .handler(async ({ data }): Promise<NeedPhrasing[]> => {
+  .handler(async ({ data }): Promise<NeedDetail> => {
     try {
       const db = await verifiedDb();
-      const r = await db.rpc("get_needs_phrasings", { _org: data.org, _category: data.category });
+      const r = await db.rpc("get_needs_detail", { _org: data.org, _category: data.category });
       if (r.error) {
-        console.error("[needs] RPC get_needs_phrasings failed", { code: r.error.code, message: r.error.message });
-        throw new Error("The phrasings could not be loaded. Please retry.");
+        console.error("[needs] RPC get_needs_detail failed", { code: r.error.code, message: r.error.message });
+        throw new Error("The items and requests could not be loaded. Please retry.");
       }
-      return (r.data ?? []).map((row: Record<string, unknown>) => ({
-        need: String(row.need), source: String(row.source),
-        seekers: Number(row.seekers) || 0, mentions: Number(row.mentions) || 0,
-      }));
+      return {
+        items: (r.data?.items ?? []).map((row: Record<string, unknown>) => ({
+          thing: String(row.thing), people: Number(row.people) || 0, phrasings: Number(row.phrasings) || 0,
+        })),
+        requests: (r.data?.requests ?? []).map((row: Record<string, unknown>) => ({
+          request: String(row.request), people: Number(row.people) || 0,
+        })),
+      };
     } catch (error) { fail(error); }
   });

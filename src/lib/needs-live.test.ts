@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { categoriesFor, coverageFor, GRIEVANCE_NEEDS, isGrievance, organisations, type NeedsOverview } from "./needs-live";
+import { readFileSync } from "node:fs";
+import ts from "typescript";
+import * as jsxRuntime from "react/jsx-runtime";
+import { renderToStaticMarkup } from "react-dom/server";
+import { categoriesFor, coverageFor, SERVICE_FAILURE_REQUESTS, isServiceFailure, itemBarPercent, organisations, type NeedsOverview } from "./needs-live";
 
 const overview: NeedsOverview = {
   categories: [
@@ -68,11 +72,40 @@ describe("needs live", () => {
     expect(coverageFor(overview, "ALIMCO")).toEqual({ orgName: "ALIMCO", seekersTotal: 48603, profilesInPool: 15898, profilesRead: 2661 });
   });
   it("returns null for missing coverage", () => { expect(coverageFor(overview, "Missing")).toBeNull(); });
-  it("marks pension not received case-insensitively", () => { expect(isGrievance("PENSION NOT RECEIVED")).toBe(true); });
-  it("marks pension stopped case-insensitively", () => { expect(isGrievance("Pension Stopped")).toBe(true); });
-  it("never expands the grievance list beyond the two hand-checked labels", () => {
-    expect([...GRIEVANCE_NEEDS]).toEqual(["pension not received", "pension stopped"]);
-    expect(isGrievance("pension")).toBe(false);
-    expect(isGrievance("pension stopped temporarily")).toBe(false);
+  it("matches exactly the nine service-failure requests, without keyword inference", () => {
+    const failures = ["not received", "payment stopped", "payment delayed", "payment stalled", "payment irregular", "arrears", "rejected", "bank account issue", "application pending"];
+    expect([...SERVICE_FAILURE_REQUESTS]).toEqual(failures);
+    for (const value of failures) {
+      expect(isServiceFailure(value)).toBe(true);
+      for (const other of [value.toUpperCase(), `pension: ${value}`, `${value} temporarily`, ` ${value}`]) expect(isServiceFailure(other)).toBe(false);
+    }
+    for (const value of ["new", "information", "apply", "restart", "pension", ""]) expect(isServiceFailure(value)).toBe(false);
+  });
+  it("renders both sections when a category has one item and many requests", () => {
+    const detail = {
+      items: [{ thing: "pension", people: 706, phrasings: 12 }],
+      requests: [{ request: "new", people: 296 }, { request: "not received", people: 123 }, { request: "information", people: 70 }, { request: "apply", people: 59 }, { request: "payment stopped", people: 34 }, { request: "restart", people: 31 }, { request: "payment delayed", people: 20 }],
+    };
+    // Execute the real expansion with a successful category query, bypassing
+    // unrelated route/server transforms without copying its rendering logic.
+    const source = readFileSync("src/routes/ecosystem-view.tsx", "utf8");
+    const expansion = source.slice(source.indexOf("function NeedDetail("), source.indexOf("function TotalsRow("));
+    const compiled = ts.transpileModule(expansion, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS } }).outputText;
+    const render = new Function("exports", "require", "useQuery", "useServerFn", "fetchNeedDetail", "itemBarPercent", "isServiceFailure", "fmt", `${compiled}; return NeedDetail;`)(
+      {}, () => jsxRuntime, () => ({ data: detail, isPending: false, isError: false }), () => () => {}, () => {}, itemBarPercent, isServiceFailure, (n: number) => n.toLocaleString("en-IN"),
+    );
+    const visible = renderToStaticMarkup(render({ org: "ALIMCO", category: "Pension" })).replace(/<[^>]*>/g, "");
+    expect(visible).toContain("pension");
+    expect(visible).toContain("706");
+    for (const request of detail.requests) {
+      expect(visible).toContain(`${request.request} ${request.people}`);
+    }
+  });
+  it("scales item bars to the largest item inside that category", () => {
+    const items = [{ thing: "tricycle", people: 643, phrasings: 69 }, { thing: "wheelchair", people: 321.5, phrasings: 12 }];
+    expect(itemBarPercent(items[0], items)).toBe(100);
+    expect(itemBarPercent(items[1], items)).toBe(50);
+    const pension = [{ thing: "pension", people: 706, phrasings: 12 }];
+    expect(itemBarPercent(pension[0], pension)).toBe(100);
   });
 });

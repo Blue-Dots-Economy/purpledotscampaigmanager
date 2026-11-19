@@ -1,5 +1,7 @@
 export interface NeedCategory { orgName: string; category: string; seekers: number; phrasings: number; mentions: number }
-export interface NeedPhrasing { need: string; source: string; seekers: number; mentions: number }
+export interface NeedItem { thing: string; people: number; phrasings: number }
+export interface NeedRequest { request: string; people: number }
+export interface NeedDetail { items: NeedItem[]; requests: NeedRequest[] }
 export interface NeedsCoverage { orgName: string; seekersTotal: number; profilesInPool: number; profilesRead: number }
 export interface NeedsOverview { categories: NeedCategory[]; coverage: NeedsCoverage[] }
 
@@ -24,7 +26,13 @@ export function coverageFor(o: NeedsOverview, org: string): NeedsCoverage | null
   return o.coverage.find(c => c.orgName === org) ?? null;
 }
 
-// Deliberately tiny, hand-checked list: the data has no grievance field.
-// Never extend this through keyword inference or apply it to other needs.
-export const GRIEVANCE_NEEDS: ReadonlySet<string> = new Set(["pension not received", "pension stopped"]);
-export function isGrievance(need: string): boolean { return GRIEVANCE_NEEDS.has(need.toLowerCase()); }
+// Exact database request values only; never infer service failures from keywords.
+export const SERVICE_FAILURE_REQUESTS: ReadonlySet<string> = new Set([
+  "not received", "payment stopped", "payment delayed", "payment stalled",
+  "payment irregular", "arrears", "rejected", "bank account issue", "application pending",
+]);
+export function isServiceFailure(request: string): boolean { return SERVICE_FAILURE_REQUESTS.has(request); }
+
+export function itemBarPercent(item: NeedItem, items: NeedItem[]): number {
+  return item.people / Math.max(1, ...items.map(row => row.people)) * 100;
+}
