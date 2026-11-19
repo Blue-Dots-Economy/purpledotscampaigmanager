@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { fetchNeedsOverview } from "@/lib/needs.functions";
+import { fetchNeedPhrasings, fetchNeedsOverview } from "@/lib/needs.functions";
 import { categoriesFor, coverageFor, isGrievance, organisations } from "@/lib/needs-live";
 import { AlertTriangle, ChevronRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -269,7 +269,6 @@ function NeedsTab() {
     </div>
     {groups.length ? groups.map(group => {
       const isExpanded = expanded.has(group.category);
-      const largestPhrasing = Math.max(1, ...group.needs.map(n => n.seekers));
       return <section key={group.category} className="space-y-3">
       <Button variant="ghost" aria-expanded={isExpanded}
         onClick={() => setExpanded(previous => { const next = new Set(previous); if (next.has(group.category)) next.delete(group.category); else next.add(group.category); return next; })}
@@ -281,25 +280,38 @@ function NeedsTab() {
         <span className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true"><span className="block h-full rounded-full bg-brand" style={{ width: `${group.seekers / largest * 100}%` }} /></span>
         <span className="text-right tabular-nums">{fmt(group.seekers)}</span>
       </Button>
-      {isExpanded && <div className="space-y-3 pb-3">
-        <p className="text-xs text-muted-foreground">How people described it. One person's need may appear under several phrasings, so these do not sum to the category total.</p>
-        {group.needs.map((row, index) => {
-          const grievance = isGrievance(row.need);
-          return <div key={`${row.source}:${row.need}:${index}`} className="grid grid-cols-[minmax(0,1fr)_minmax(48px,1fr)_64px] sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_80px] items-center gap-3">
-            <div className="min-w-0 flex flex-wrap items-center gap-1.5 text-sm">
-              <span className="break-words">{row.need}</span>
-              {grievance && <Badge variant="outline" className="border-destructive/20 bg-destructive/10 text-destructive text-[10px]">grievance</Badge>}
-              {row.source !== "profile" && <span className="text-xs text-muted-foreground">{row.source}</span>}
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-              <div className={`h-full rounded-full ${grievance ? "bg-destructive" : "bg-brand"}`} style={{ width: `${row.seekers / largestPhrasing * 100}%` }} />
-            </div>
-            <span className="text-right text-sm tabular-nums">{fmt(row.seekers)}</span>
-          </div>;
-        })}
-      </div>}
+      {isExpanded && <NeedPhrasings org={org} category={group.category} />}
     </section>;
     }) : <p className="text-sm text-muted-foreground">No profiles have been read for this organisation yet.</p>}
+  </div>;
+}
+
+function NeedPhrasings({ org, category }: { org: string; category: string }) {
+  const fetcher = useServerFn(fetchNeedPhrasings);
+  const query = useQuery({ queryKey: ["ecosystem-needs-phrasings", org, category], queryFn: () => fetcher({ data: { org, category } }), staleTime: 60_000, retry: false });
+  if (query.isPending) return <p className="pb-3 text-xs text-muted-foreground">Loading phrasings…</p>;
+  if (query.isError) return <div role="alert" className="flex flex-wrap items-center gap-2 pb-3">
+    <p className="text-xs text-muted-foreground">The phrasings for this category could not be loaded.</p>
+    <Button variant="outline" size="sm" onClick={() => void query.refetch()}>Retry</Button>
+  </div>;
+  const rows = query.data;
+  const largestPhrasing = Math.max(1, ...rows.map(n => n.seekers));
+  return <div className="space-y-3 pb-3">
+    <p className="text-xs text-muted-foreground">How people described it. One person's need may appear under several phrasings, so these do not sum to the category total.</p>
+    {rows.map((row, index) => {
+      const grievance = isGrievance(row.need);
+      return <div key={`${row.source}:${row.need}:${index}`} className="grid grid-cols-[minmax(0,1fr)_minmax(48px,1fr)_64px] sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_80px] items-center gap-3">
+        <div className="min-w-0 flex flex-wrap items-center gap-1.5 text-sm">
+          <span className="break-words">{row.need}</span>
+          {grievance && <Badge variant="outline" className="border-destructive/20 bg-destructive/10 text-destructive text-[10px]">grievance</Badge>}
+          {row.source !== "profile" && <span className="text-xs text-muted-foreground">{row.source}</span>}
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+          <div className={`h-full rounded-full ${grievance ? "bg-destructive" : "bg-brand"}`} style={{ width: `${row.seekers / largestPhrasing * 100}%` }} />
+        </div>
+        <span className="text-right text-sm tabular-nums">{fmt(row.seekers)}</span>
+      </div>;
+    })}
   </div>;
 }
 
