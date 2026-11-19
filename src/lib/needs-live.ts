@@ -3,9 +3,16 @@ export interface NeedPhrasing { need: string; source: string; seekers: number; m
 export interface NeedsCoverage { orgName: string; seekersTotal: number; profilesInPool: number; profilesRead: number }
 export interface NeedsOverview { categories: NeedCategory[]; coverage: NeedsCoverage[] }
 
+/**
+ * Pill order follows how much needs data was actually extracted: the sum of the
+ * server's distinct-people `seekers` across an organisation's categories.
+ * `coverage.seekersTotal` is total registered seekers and says nothing about
+ * extraction, so it must not drive this order — the coverage strip below uses it.
+ */
 export function organisations(o: NeedsOverview): string[] {
-  const totals = new Map(o.coverage.map(c => [c.orgName, c.seekersTotal]));
-  return [...new Set(o.categories.map(r => r.orgName))].sort((a, b) => (totals.get(b) ?? 0) - (totals.get(a) ?? 0));
+  const extracted = new Map<string, number>();
+  for (const r of o.categories) extracted.set(r.orgName, (extracted.get(r.orgName) ?? 0) + r.seekers);
+  return [...extracted.keys()].sort((a, b) => (extracted.get(b) ?? 0) - (extracted.get(a) ?? 0));
 }
 
 /** Distinct-people `seekers` comes from the server; never sum phrasings to recompute it. */

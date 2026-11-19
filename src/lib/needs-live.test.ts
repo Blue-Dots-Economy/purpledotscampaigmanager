@@ -30,8 +30,39 @@ describe("needs live", () => {
     };
     expect(organisations(data)).toEqual(names);
   });
-  it("orders organisations by seeker total and excludes coverage-only organisations", () => {
+  it("orders organisations by extracted needs, not seeker total, and excludes coverage-only organisations", () => {
     expect(organisations(overview)).toEqual(["ALIMCO", "DEPwD"]);
+  });
+  it("puts an organisation with a huge seeker total but almost no extracted needs last", () => {
+    const data: NeedsOverview = {
+      categories: [
+        { orgName: "DEPwD Seeker Purple Dots", category: "Employment Opportunities", seekers: 1, phrasings: 1, mentions: 1 },
+        { orgName: "ALIMCO", category: "Assistive Devices", seekers: 1026, phrasings: 40, mentions: 1300 },
+        { orgName: "ALIMCO", category: "Pension", seekers: 706, phrasings: 12, mentions: 800 },
+        { orgName: "Tech Mahindra Foundation", category: "Pension", seekers: 1197, phrasings: 9, mentions: 1400 },
+        { orgName: "EnAble India", category: "Pension", seekers: 583, phrasings: 7, mentions: 700 },
+        { orgName: "Youth4Jobs Foundation", category: "Pension", seekers: 100, phrasings: 5, mentions: 120 },
+        { orgName: "Department of Empowerment of Persons with Disabilities (Divyangjan)", category: "Pension", seekers: 99, phrasings: 4, mentions: 110 },
+      ],
+      coverage: [
+        { orgName: "DEPwD Seeker Purple Dots", seekersTotal: 110721, profilesInPool: 60151, profilesRead: 1 },
+        { orgName: "ALIMCO", seekersTotal: 48603, profilesInPool: 15898, profilesRead: 2661 },
+        { orgName: "Tech Mahindra Foundation", seekersTotal: 30000, profilesInPool: 9000, profilesRead: 1500 },
+        { orgName: "EnAble India", seekersTotal: 20000, profilesInPool: 6000, profilesRead: 900 },
+        { orgName: "Youth4Jobs Foundation", seekersTotal: 10000, profilesInPool: 3000, profilesRead: 400 },
+        { orgName: "Department of Empowerment of Persons with Disabilities (Divyangjan)", seekersTotal: 5000, profilesInPool: 1500, profilesRead: 200 },
+      ],
+    };
+    // 3232 extracted people for ALIMCO vs 1 for DEPwD Seeker Purple Dots, whose
+    // 1,10,721 registered seekers must not lift it to the front.
+    expect(organisations(data)).toEqual([
+      "ALIMCO",
+      "Tech Mahindra Foundation",
+      "EnAble India",
+      "Youth4Jobs Foundation",
+      "Department of Empowerment of Persons with Disabilities (Divyangjan)",
+      "DEPwD Seeker Purple Dots",
+    ]);
   });
   it("returns the explicit ALIMCO coverage counts", () => {
     expect(coverageFor(overview, "ALIMCO")).toEqual({ orgName: "ALIMCO", seekersTotal: 48603, profilesInPool: 15898, profilesRead: 2661 });
