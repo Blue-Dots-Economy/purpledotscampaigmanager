@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coverageFor, GRIEVANCE_NEEDS, isGrievance, needsFor, organisations, type NeedsOverview } from "./needs-live";
+import { categoriesFor, coverageFor, GRIEVANCE_NEEDS, isGrievance, needsFor, organisations, type NeedsOverview } from "./needs-live";
 
 const overview: NeedsOverview = {
   rows: [
@@ -18,6 +18,33 @@ const overview: NeedsOverview = {
 };
 
 describe("needs live", () => {
+  it("sums seekers within each category and preserves category ordering", () => {
+    expect(categoriesFor(overview, "ALIMCO").map(({ category, seekers }) => ({ category, seekers }))).toEqual([
+      { category: "Pension", seekers: 465 }, { category: "Assistive Devices", seekers: 369 },
+    ]);
+  });
+  it("counts distinct verbatim phrasings, not source rows", () => {
+    const duplicate = { ...overview.rows[0], source: "call", seekers: 5 };
+    const category = categoriesFor({ ...overview, rows: [...overview.rows, duplicate] }, "ALIMCO")[0];
+    expect(category.phrasings).toBe(3);
+    expect(category.seekers).toBe(470);
+    expect(category.needs).toContain(duplicate);
+  });
+  it("reports one phrasing and one seeker for a single-need category", () => {
+    expect(categoriesFor(overview, "DEPwD")[0]).toMatchObject({ category: "Pension", seekers: 1, phrasings: 1 });
+  });
+  it("does not change category rollups when sources change to call", () => {
+    const summarize = (data: NeedsOverview) => categoriesFor(data, "ALIMCO").map(({ category, seekers, phrasings }) => ({ category, seekers, phrasings }));
+    expect(summarize({ ...overview, rows: overview.rows.map(row => ({ ...row, source: "call" })) })).toEqual(summarize(overview));
+  });
+  it("keeps all six organisations selectable when all six are returned", () => {
+    const names = ["ALIMCO", "Tech Mahindra Foundation", "EnAble India", "Youth4Jobs Foundation", "Department of Empowerment of Persons with Disabilities (Divyangjan)", "DEPwD Seeker Purple Dots"];
+    const data: NeedsOverview = {
+      rows: names.flatMap((orgName, index) => Array.from({ length: [1114, 480, 52, 10, 7, 1][index] }, () => ({ ...overview.rows[0], orgName }))),
+      coverage: names.map((orgName, index) => ({ orgName, seekersTotal: 600 - index, profilesInPool: 100, profilesRead: 10 })),
+    };
+    expect(organisations(data)).toEqual(names);
+  });
   it("groups only the selected organisation and orders categories and needs by seekers", () => {
     const groups = needsFor(overview, "ALIMCO");
     expect(groups.map(g => g.category)).toEqual(["Pension", "Assistive Devices"]);

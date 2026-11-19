@@ -18,6 +18,14 @@ export function needsFor(o: NeedsOverview, org: string): { category: string; nee
     .sort((a, b) => b.needs.reduce((sum, n) => sum + n.seekers, 0) - a.needs.reduce((sum, n) => sum + n.seekers, 0));
 }
 
+export function categoriesFor(o: NeedsOverview, org: string): { category: string; seekers: number; phrasings: number; needs: NeedRow[] }[] {
+  return needsFor(o, org).map(group => ({
+    ...group,
+    seekers: group.needs.reduce((sum, row) => sum + row.seekers, 0),
+    phrasings: new Set(group.needs.map(row => row.need)).size,
+  }));
+}
+
 export function coverageFor(o: NeedsOverview, org: string): NeedsCoverage | null {
   return o.coverage.find(c => c.orgName === org) ?? null;
 }

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { fetchNeedsOverview } from "@/lib/needs.functions";
-import { coverageFor, isGrievance, needsFor, organisations } from "@/lib/needs-live";
+import { categoriesFor, coverageFor, isGrievance, organisations } from "@/lib/needs-live";
 import { AlertTriangle, ChevronRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -245,6 +245,7 @@ function NeedsTab() {
   const fetcher = useServerFn(fetchNeedsOverview);
   const query = useQuery({ queryKey: ["ecosystem-needs"], queryFn: () => fetcher(), staleTime: 60_000, retry: false });
   const [selected, setSelected] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   if (query.isPending) return <p className="py-8 text-sm text-muted-foreground">Reading live needs data…</p>;
   if (query.isError) return <div role="alert" className="space-y-3">
     <p className="text-sm text-muted-foreground">{query.error.message}</p>
@@ -255,20 +256,33 @@ function NeedsTab() {
   const org = selected && orgs.includes(selected) ? selected : orgs[0];
   if (!org) return <p className="text-sm text-muted-foreground">No profiles have been read yet.</p>;
   const coverage = coverageFor(data, org);
-  const groups = needsFor(data, org);
-  const largest = Math.max(1, ...groups.flatMap(g => g.needs.map(n => n.seekers)));
+  const groups = categoriesFor(data, org);
+  const largest = Math.max(1, ...groups.map(g => g.seekers));
   return <div className="space-y-6">
     <div className="flex flex-wrap items-center gap-2" aria-label="Needs organisation">
       {orgs.map(name => <Button key={name} variant="outline" size="sm" aria-pressed={name === org}
-        className={`rounded-full text-xs ${name === org ? "bg-brand-soft text-brand border-brand/30" : ""}`}
-        onClick={() => setSelected(name)}>{name}</Button>)}
+        className={`h-auto min-h-8 max-w-full whitespace-normal break-words py-1.5 rounded-full text-xs ${name === org ? "bg-brand-soft text-brand border-brand/30" : ""}`}
+        onClick={() => { setSelected(name); setExpanded(new Set()); }}>{name}</Button>)}
     </div>
     <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground tabular-nums">
       {coverage ? `${fmt(coverage.profilesRead)} profiles read · ${fmt(coverage.profilesInPool)} have a stated need · ${fmt(coverage.seekersTotal)} seekers` : "Coverage counts unavailable for this organisation."}
     </div>
-    {groups.length ? groups.map(group => <section key={group.category} className="space-y-3">
-      <h3 className="text-xs font-medium text-muted-foreground">{group.category}</h3>
-      <div className="space-y-3">
+    {groups.length ? groups.map(group => {
+      const isExpanded = expanded.has(group.category);
+      const largestPhrasing = Math.max(1, ...group.needs.map(n => n.seekers));
+      return <section key={group.category} className="space-y-3">
+      <Button variant="ghost" aria-expanded={isExpanded}
+        onClick={() => setExpanded(previous => { const next = new Set(previous); if (next.has(group.category)) next.delete(group.category); else next.add(group.category); return next; })}
+        className="grid h-auto w-full grid-cols-[minmax(0,2fr)_minmax(48px,3fr)_64px] items-center gap-3 whitespace-normal px-0 py-2 text-left">
+        <span className="min-w-0 flex items-start gap-2">
+          <ChevronRight className={`mt-0.5 shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+          <span className="min-w-0 break-words">{group.category}<span className="block text-xs font-normal text-muted-foreground">{fmt(group.phrasings)} {group.phrasings === 1 ? "way" : "ways"} described</span></span>
+        </span>
+        <span className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true"><span className="block h-full rounded-full bg-brand" style={{ width: `${group.seekers / largest * 100}%` }} /></span>
+        <span className="text-right tabular-nums">{fmt(group.seekers)}</span>
+      </Button>
+      {isExpanded && <div className="space-y-3 pb-3">
+        <p className="text-xs text-muted-foreground">How people described it. One person's need may appear under several phrasings, so these do not sum to the category total.</p>
         {group.needs.map((row, index) => {
           const grievance = isGrievance(row.need);
           return <div key={`${row.source}:${row.need}:${index}`} className="grid grid-cols-[minmax(0,1fr)_minmax(48px,1fr)_64px] sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_80px] items-center gap-3">
@@ -278,13 +292,14 @@ function NeedsTab() {
               {row.source !== "profile" && <span className="text-xs text-muted-foreground">{row.source}</span>}
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-              <div className={`h-full rounded-full ${grievance ? "bg-destructive" : "bg-brand"}`} style={{ width: `${row.seekers / largest * 100}%` }} />
+              <div className={`h-full rounded-full ${grievance ? "bg-destructive" : "bg-brand"}`} style={{ width: `${row.seekers / largestPhrasing * 100}%` }} />
             </div>
             <span className="text-right text-sm tabular-nums">{fmt(row.seekers)}</span>
           </div>;
         })}
-      </div>
-    </section>) : <p className="text-sm text-muted-foreground">No profiles have been read for this organisation yet.</p>}
+      </div>}
+    </section>;
+    }) : <p className="text-sm text-muted-foreground">No profiles have been read for this organisation yet.</p>}
   </div>;
 }
 
