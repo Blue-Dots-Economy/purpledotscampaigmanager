@@ -9,10 +9,10 @@ describe("cohort filters", () => {
     expect(buildCohortFilter({ orgs: ["ALIMCO"], states: [] })).toEqual({ orgs: ["ALIMCO"] });
   });
   it("accepts exactly the remaining selections", () => {
-    expect([...COHORT_ARRAY_KEYS]).toEqual(["orgs", "coordinators", "things", "states", "districts", "lifecycle"]);
+    expect([...COHORT_ARRAY_KEYS]).toEqual(["orgs", "states", "districts", "lifecycle"]);
   });
   it("rejects every removed filter, even with a value the database would accept", () => {
-    for (const key of ["categories", "requests", "bands"]) expect(() => validateCohortFilter({ [key]: ["Pension"] })).toThrow(`Unknown cohort filter: ${key}.`);
+    for (const key of ["categories", "requests", "bands", "coordinators", "things"]) expect(() => validateCohortFilter({ [key]: ["Pension"] })).toThrow(`Unknown cohort filter: ${key}.`);
     for (const key of ["completion_max", "max_calls", "cooldown_days"]) expect(() => validateCohortFilter({ [key]: 2 })).toThrow(`Unknown cohort filter: ${key}.`);
   });
   it("never builds a removed filter from stale picker state", () => {
@@ -33,8 +33,8 @@ describe("cohort filters", () => {
     expect(() => validateCohortFilter([])).toThrow();
   });
   it("summarises every selected filter", () => {
-    expect(cohortSummary({ orgs: ["ALIMCO"], coordinators: ["C01"], things: ["pension"], states: ["Uttar Pradesh"], districts: ["Basti"], lifecycle: ["Live"], needs_only: true }))
-      .toBe("ALIMCO · C01 · pension · Uttar Pradesh · Basti · Live · with a recorded need");
+    expect(cohortSummary({ orgs: ["ALIMCO"], states: ["Uttar Pradesh"], districts: ["Basti"], lifecycle: ["Live"], needs_only: true }))
+      .toBe("ALIMCO · Uttar Pradesh · Basti · Live · with a recorded need");
   });
   it("reads correctly with just one filter", () => {
     expect(cohortSummary({ orgs: ["ALIMCO"] })).toBe("ALIMCO");

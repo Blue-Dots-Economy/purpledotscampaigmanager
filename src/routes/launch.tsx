@@ -649,8 +649,6 @@ function LaunchWizard() {
               <>
                 <Field label="Cohort filters" value={cohortSummary(lockedCohort?.filter ?? {})} />
                 <Field label="Matched people" value={(lockedCohort?.total ?? 0).toLocaleString("en-IN")} />
-                <Field label="Previous calls" value={lockedCohort?.filter.max_calls === undefined ? "No previous-call limit" : `Called at most ${lockedCohort.filter.max_calls} times before`} />
-                <Field label="Cooldown" value={lockedCohort?.filter.cooldown_days === undefined ? "No cooldown restriction" : `Not called in the last ${lockedCohort.filter.cooldown_days} days`} />
               </>
             ) : (
               <Field label="File" value={file?.name ?? "—"} />

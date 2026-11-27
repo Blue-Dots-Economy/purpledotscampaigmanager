@@ -1,14 +1,10 @@
-export const COHORT_ARRAY_KEYS = ["orgs", "coordinators", "things", "states", "districts", "lifecycle"] as const;
+export const COHORT_ARRAY_KEYS = ["orgs", "states", "districts", "lifecycle"] as const;
 export type CohortArrayKey = typeof COHORT_ARRAY_KEYS[number];
-export type CohortFilter = Partial<Record<CohortArrayKey, string[]> & { needs_only: boolean }> & {
-  // Removed guards. Step 6 Review in launch.tsx still reads these two names, so they stay typed as never-present
-  // until that file drops its two rows; the validator rejects both at runtime.
-  max_calls?: never; cooldown_days?: never;
-};
+export type CohortFilter = Partial<Record<CohortArrayKey, string[]> & { needs_only: boolean }>;
 export type CohortUiState = Partial<Record<CohortArrayKey, string[]> & { needs_only: boolean }>;
 /** A district is only unique within its state: two district names occur in more than one state. */
 export interface CohortDistrict { state: string; district: string }
-export interface CohortOptions { orgs: string[]; states: string[]; things: string[]; lifecycle: string[]; districts: CohortDistrict[] }
+export interface CohortOptions { orgs: string[]; states: string[]; lifecycle: string[]; districts: CohortDistrict[] }
 export interface CohortSample {
   item_id: string; org_name: string | null; state: string | null; district: string | null;
   band: string | null; calls_made: number; completion: number | null; last_call_date: string | null; categories: string[];
