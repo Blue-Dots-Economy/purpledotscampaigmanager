@@ -72,7 +72,7 @@ export function PickCohort({ state, onChange, locked, onUse }: {
           {preview.isError && <div role="alert" className="space-y-2 text-sm text-destructive"><p>Cohort preview could not be loaded.</p><Button variant="outline" onClick={() => preview.refetch()}>Retry</Button></div>}
           {preview.data && <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <MetricCard label="People matched" value={preview.data.total} sub="match these filters" />
+              <MetricCard label="People matched" value={preview.data.total} sub={`${fmt(preview.data.with_needs)} have a recorded need`} />
               <MetricCard label="Never called" value={preview.data.never_called} sub="no call history" />
               <MetricCard label="Called before" value={preview.data.called_before} sub="would be re-contacted" />
               <MetricCard label="Known location" value={preview.data.located_total} sub={`${preview.data.total ? Math.round((preview.data.located_total / preview.data.total) * 100) : 0}% of the cohort`} />

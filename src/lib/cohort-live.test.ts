@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
-import { buildCohortFilter, cohortSummary, validateCohortFilter, cohortIdsCsv, COHORT_ARRAY_KEYS, districtsForStates, districtsAfterStateChange, type CohortDistrict } from "./cohort-live";
+import { buildCohortFilter, cohortSummary, validateCohortFilter, cohortIdsCsv, COHORT_ARRAY_KEYS, districtsForStates, districtsAfterStateChange, cohortDistricts, type CohortDistrict } from "./cohort-live";
 
 describe("cohort filters", () => {
   it("omits every unselected array rather than sending an empty array", () => {
@@ -66,6 +66,11 @@ describe("cohort districts", () => {
     { state: "Maharashtra", district: "Pune" }, { state: "Maharashtra", district: "Aurangabad" },
     { state: "Bihar", district: "Aurangabad" },
   ];
+  it("passes state and district pairs through and drops malformed rows", () => {
+    expect(cohortDistricts([{ state: "Uttar Pradesh", district: "Basti", extra: 1 }, { state: "Bihar" }, { state: 1, district: "X" }, "Pune", null]))
+      .toEqual([{ state: "Uttar Pradesh", district: "Basti" }]);
+    expect(cohortDistricts(undefined)).toEqual([]);
+  });
   it("narrows districts to the selected states", () => {
     expect(districtsForStates(all, ["Uttar Pradesh"])).toEqual(["Basti", "Lucknow"]);
     expect(districtsForStates(all, ["Uttar Pradesh", "Bihar"])).toEqual(["Aurangabad", "Basti", "Lucknow"]);

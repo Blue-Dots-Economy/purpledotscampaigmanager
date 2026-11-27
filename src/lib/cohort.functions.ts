@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { validateCohortFilter, type CohortFilter, type CohortOptions, type CohortPreview, type CohortId } from "./cohort-live";
+import { cohortDistricts, validateCohortFilter, type CohortFilter, type CohortOptions, type CohortPreview, type CohortId } from "./cohort-live";
 
 async function verifiedDb() {
   const { resolveRequestIdentity } = await import("./campaign-session.server");
@@ -21,7 +21,7 @@ export const fetchCohortOptions = createServerFn({ method: "GET" }).handler(asyn
   const db = await verifiedDb();
   const { data, error } = await db.rpc("get_cohort_options");
   if (error || !data) throw new Error("Cohort filters could not be loaded. Please retry.");
-  return { orgs: strings(data.orgs), states: strings(data.states), categories: strings(data.categories), requests: strings(data.requests), things: strings(data.things), bands: strings(data.bands), lifecycle: strings(data.lifecycle) };
+  return { orgs: strings(data.orgs), states: strings(data.states), categories: strings(data.categories), requests: strings(data.requests), things: strings(data.things), bands: strings(data.bands), lifecycle: strings(data.lifecycle), districts: cohortDistricts(data.districts) };
 });
 
 export const fetchCohortPreview = createServerFn({ method: "POST" })

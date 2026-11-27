@@ -6,7 +6,7 @@ export type CohortFilter = Partial<Record<CohortArrayKey, string[]> & Record<Coh
 export type CohortUiState = Partial<Record<CohortArrayKey, string[]> & Record<CohortNumberKey, string> & { needs_only: boolean }>;
 /** A district is only unique within its state: two district names occur in more than one state. */
 export interface CohortDistrict { state: string; district: string }
-export interface CohortOptions { orgs: string[]; states: string[]; categories: string[]; requests: string[]; things: string[]; bands: string[]; lifecycle: string[]; districts?: CohortDistrict[] }
+export interface CohortOptions { orgs: string[]; states: string[]; categories: string[]; requests: string[]; things: string[]; bands: string[]; lifecycle: string[]; districts: CohortDistrict[] }
 export interface CohortSample {
   item_id: string; org_name: string | null; state: string | null; district: string | null;
   band: string | null; calls_made: number; completion: number | null; last_call_date: string | null; categories: string[];
@@ -67,6 +67,16 @@ export function cohortSummary(filter: CohortFilter): string {
 export function cohortIdsCsv(rows: CohortId[]): string {
   const escape = (value: string | null) => `"${(value ?? "").replaceAll('"', '""')}"`;
   return ["item_id,user_id", ...rows.map(row => `${escape(row.item_id)},${escape(row.user_id)}`)].join("\r\n");
+}
+
+/** Read the `{state, district}` pairs off the wire, keeping only rows where both fields are strings. */
+export function cohortDistricts(value: unknown): CohortDistrict[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((row: unknown) => {
+    if (!row || typeof row !== "object") return [];
+    const { state, district } = row as Record<string, unknown>;
+    return typeof state === "string" && typeof district === "string" ? [{ state, district }] : [];
+  });
 }
 
 /** District names on offer: every district with no state selected, otherwise only those in the selected states. */
