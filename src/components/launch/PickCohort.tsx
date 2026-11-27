@@ -12,15 +12,11 @@ import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fetchCohortOptions, fetchCohortPreview } from "@/lib/cohort.functions";
-import { buildCohortFilter, districtsForStates, districtsAfterStateChange, type CohortUiState, type CohortArrayKey, type CohortNumberKey, type LockedCohort } from "@/lib/cohort-live";
+import { buildCohortFilter, districtsForStates, districtsAfterStateChange, type CohortUiState, type CohortArrayKey, type LockedCohort } from "@/lib/cohort-live";
 
 const selectors = [
-  ["orgs", "Organisation"], ["categories", "Need category"], ["requests", "What they're asking for"],
-  ["bands", "Match confidence"], ["states", "State"], ["districts", "District"], ["lifecycle", "Profile status"],
+  ["orgs", "Organisation"], ["states", "State"], ["districts", "District"], ["lifecycle", "Profile status"],
 ] as const;
-const numbers: [CohortNumberKey, string][] = [
-  ["completion_max", "Profile completion at most %"], ["max_calls", "Called at most N times before"], ["cooldown_days", "Not called in the last N days"],
-];
 const fmt = (n: number) => n.toLocaleString("en-IN");
 
 export function PickCohort({ state, onChange, locked, onUse }: {
@@ -49,7 +45,7 @@ export function PickCohort({ state, onChange, locked, onUse }: {
   const ready = !!parsed.filter && !!preview.data && !waiting && !preview.isError && !!options.data;
   const allDistricts = options.data?.districts ?? [];
   const selectedStates = state.states ?? [];
-  const set = (key: CohortArrayKey | CohortNumberKey | "needs_only", value: string[] | string | boolean) => onChange({ ...state, [key]: value });
+  const set = (key: CohortArrayKey | "needs_only", value: string[] | boolean) => onChange({ ...state, [key]: value });
 
   return (
     <Panel title="Step 3 · Pick a cohort" description="Choose people from the live database — the DPG places the calls"
@@ -63,7 +59,6 @@ export function PickCohort({ state, onChange, locked, onUse }: {
             : <MultiSelect key={key} label={label} values={options.data[key]} selected={state[key] ?? []} onChange={values => key === "states"
               ? onChange({ ...state, states: values, districts: districtsAfterStateChange(allDistricts, selectedStates, values, state.districts ?? []) })
               : set(key, values)} />)}
-          {numbers.map(([key, label]) => <div key={key} className="space-y-1.5"><Label htmlFor={`cohort-${key}`} className="text-xs">{label}</Label><Input id={`cohort-${key}`} type="number" min={0} step={1} value={state[key] ?? ""} onChange={e => set(key, e.target.value)} /></div>)}
         </div>
         <div className="mt-4 flex items-center gap-2"><Switch id="cohort-needs-only" checked={state.needs_only ?? false} onCheckedChange={value => set("needs_only", value)} /><Label htmlFor="cohort-needs-only">Only people with a recorded need</Label></div>
         {parsed.error && <p role="alert" className="mt-3 text-sm text-destructive">{parsed.error}</p>}

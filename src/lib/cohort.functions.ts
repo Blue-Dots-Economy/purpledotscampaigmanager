@@ -21,7 +21,7 @@ export const fetchCohortOptions = createServerFn({ method: "GET" }).handler(asyn
   const db = await verifiedDb();
   const { data, error } = await db.rpc("get_cohort_options");
   if (error || !data) throw new Error("Cohort filters could not be loaded. Please retry.");
-  return { orgs: strings(data.orgs), states: strings(data.states), categories: strings(data.categories), requests: strings(data.requests), things: strings(data.things), bands: strings(data.bands), lifecycle: strings(data.lifecycle), districts: cohortDistricts(data.districts) };
+  return { orgs: strings(data.orgs), states: strings(data.states), things: strings(data.things), lifecycle: strings(data.lifecycle), districts: cohortDistricts(data.districts) };
 });
 
 export const fetchCohortPreview = createServerFn({ method: "POST" })

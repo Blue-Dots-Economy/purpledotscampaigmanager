@@ -1,12 +1,14 @@
-export const COHORT_ARRAY_KEYS = ["orgs", "coordinators", "categories", "requests", "things", "bands", "states", "districts", "lifecycle"] as const;
-export const COHORT_NUMBER_KEYS = ["completion_max", "max_calls", "cooldown_days"] as const;
+export const COHORT_ARRAY_KEYS = ["orgs", "coordinators", "things", "states", "districts", "lifecycle"] as const;
 export type CohortArrayKey = typeof COHORT_ARRAY_KEYS[number];
-export type CohortNumberKey = typeof COHORT_NUMBER_KEYS[number];
-export type CohortFilter = Partial<Record<CohortArrayKey, string[]> & Record<CohortNumberKey, number> & { needs_only: boolean }>;
-export type CohortUiState = Partial<Record<CohortArrayKey, string[]> & Record<CohortNumberKey, string> & { needs_only: boolean }>;
+export type CohortFilter = Partial<Record<CohortArrayKey, string[]> & { needs_only: boolean }> & {
+  // Removed guards. Step 6 Review in launch.tsx still reads these two names, so they stay typed as never-present
+  // until that file drops its two rows; the validator rejects both at runtime.
+  max_calls?: never; cooldown_days?: never;
+};
+export type CohortUiState = Partial<Record<CohortArrayKey, string[]> & { needs_only: boolean }>;
 /** A district is only unique within its state: two district names occur in more than one state. */
 export interface CohortDistrict { state: string; district: string }
-export interface CohortOptions { orgs: string[]; states: string[]; categories: string[]; requests: string[]; things: string[]; bands: string[]; lifecycle: string[]; districts: CohortDistrict[] }
+export interface CohortOptions { orgs: string[]; states: string[]; things: string[]; lifecycle: string[]; districts: CohortDistrict[] }
 export interface CohortSample {
   item_id: string; org_name: string | null; state: string | null; district: string | null;
   band: string | null; calls_made: number; completion: number | null; last_call_date: string | null; categories: string[];
@@ -29,9 +31,6 @@ export function validateCohortFilter(input: unknown): CohortFilter {
     if ((COHORT_ARRAY_KEYS as readonly string[]).includes(key)) {
       if (!Array.isArray(value) || !value.every(v => typeof v === "string" && v.trim().length > 0)) throw new Error(`Invalid ${key} filter.`);
       result[key as CohortArrayKey] = [...value];
-    } else if ((COHORT_NUMBER_KEYS as readonly string[]).includes(key)) {
-      if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) throw new Error(`Invalid ${key} guard. Use a non-negative integer.`);
-      result[key as CohortNumberKey] = value;
     } else if (key === "needs_only") {
       if (typeof value !== "boolean") throw new Error("Invalid recorded-need filter.");
       result.needs_only = value;
@@ -47,10 +46,6 @@ export function buildCohortFilter(state: CohortUiState): CohortFilter {
     if (values?.length) filter[key] = [...values];
   }
   if (state.needs_only) filter.needs_only = true;
-  for (const key of COHORT_NUMBER_KEYS) {
-    const value = state[key];
-    if (value !== undefined && value.trim() !== "") filter[key] = Number(value);
-  }
   return validateCohortFilter(filter);
 }
 
@@ -58,9 +53,6 @@ export function cohortSummary(filter: CohortFilter): string {
   const parts: string[] = [];
   for (const key of COHORT_ARRAY_KEYS) if (filter[key]?.length) parts.push(filter[key]?.join(", ") ?? "");
   if (filter.needs_only) parts.push("with a recorded need");
-  if (filter.completion_max !== undefined) parts.push(`profile completion at most ${filter.completion_max}%`);
-  if (filter.max_calls !== undefined) parts.push(`max ${filter.max_calls} calls`);
-  if (filter.cooldown_days !== undefined) parts.push(`${filter.cooldown_days}-day cooldown`);
   return parts.join(" · ") || "All people";
 }
 

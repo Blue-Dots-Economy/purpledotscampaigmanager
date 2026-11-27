@@ -6,13 +6,18 @@ import { buildCohortFilter, cohortSummary, validateCohortFilter, cohortIdsCsv, C
 describe("cohort filters", () => {
   it("omits every unselected array rather than sending an empty array", () => {
     expect(buildCohortFilter(Object.fromEntries(COHORT_ARRAY_KEYS.map(key => [key, []])))).toEqual({});
-    expect(buildCohortFilter({ orgs: ["ALIMCO"], categories: [] })).toEqual({ orgs: ["ALIMCO"] });
+    expect(buildCohortFilter({ orgs: ["ALIMCO"], states: [] })).toEqual({ orgs: ["ALIMCO"] });
   });
-  it("omits blank numeric guards", () => {
-    expect(buildCohortFilter({ completion_max: "", max_calls: " ", cooldown_days: "" })).toEqual({});
+  it("accepts exactly the remaining selections", () => {
+    expect([...COHORT_ARRAY_KEYS]).toEqual(["orgs", "coordinators", "things", "states", "districts", "lifecycle"]);
   });
-  it("includes zero numeric guards", () => {
-    expect(buildCohortFilter({ completion_max: "0", max_calls: "0", cooldown_days: "0" })).toEqual({ completion_max: 0, max_calls: 0, cooldown_days: 0 });
+  it("rejects every removed filter, even with a value the database would accept", () => {
+    for (const key of ["categories", "requests", "bands"]) expect(() => validateCohortFilter({ [key]: ["Pension"] })).toThrow(`Unknown cohort filter: ${key}.`);
+    for (const key of ["completion_max", "max_calls", "cooldown_days"]) expect(() => validateCohortFilter({ [key]: 2 })).toThrow(`Unknown cohort filter: ${key}.`);
+  });
+  it("never builds a removed filter from stale picker state", () => {
+    const stale = { orgs: ["ALIMCO"], categories: ["Pension"], bands: ["High"], max_calls: "2", cooldown_days: "30" };
+    expect(buildCohortFilter(stale as Parameters<typeof buildCohortFilter>[0])).toEqual({ orgs: ["ALIMCO"] });
   });
   it("only includes the recorded-need filter when enabled", () => {
     expect(buildCohortFilter({ needs_only: false })).toEqual({});
@@ -21,25 +26,19 @@ describe("cohort filters", () => {
   it("rejects unknown keys including contact details", () => {
     for (const key of ["name", "phone", "contact_phone", "unknown"]) expect(() => validateCohortFilter({ [key]: "x" })).toThrow();
   });
-  it("rejects negative, fractional and nonnumeric guards", () => {
-    for (const key of ["completion_max", "max_calls", "cooldown_days"]) {
-      for (const value of [-1, 0.5, "2", NaN, Infinity]) expect(() => validateCohortFilter({ [key]: value })).toThrow();
-    }
-  });
   it("rejects invalid selection and toggle types", () => {
     expect(() => validateCohortFilter({ orgs: "ALIMCO" })).toThrow();
     expect(() => validateCohortFilter({ orgs: [1] })).toThrow();
     expect(() => validateCohortFilter({ needs_only: "true" })).toThrow();
     expect(() => validateCohortFilter([])).toThrow();
   });
-  it("summarises every selected filter and guard", () => {
-    expect(cohortSummary({ orgs: ["ALIMCO"], coordinators: ["C01"], categories: ["Pension"], requests: ["not received"], things: ["pension"], bands: ["High"], states: ["Uttar Pradesh"], districts: ["Basti"], lifecycle: ["Live"], needs_only: true, completion_max: 60, max_calls: 2, cooldown_days: 30 }))
-      .toBe("ALIMCO · C01 · Pension · not received · pension · High · Uttar Pradesh · Basti · Live · with a recorded need · profile completion at most 60% · max 2 calls · 30-day cooldown");
+  it("summarises every selected filter", () => {
+    expect(cohortSummary({ orgs: ["ALIMCO"], coordinators: ["C01"], things: ["pension"], states: ["Uttar Pradesh"], districts: ["Basti"], lifecycle: ["Live"], needs_only: true }))
+      .toBe("ALIMCO · C01 · pension · Uttar Pradesh · Basti · Live · with a recorded need");
   });
   it("reads correctly with just one filter", () => {
     expect(cohortSummary({ orgs: ["ALIMCO"] })).toBe("ALIMCO");
-    expect(cohortSummary({ max_calls: 0 })).toBe("max 0 calls");
-    expect(cohortSummary({ cooldown_days: 30 })).toBe("30-day cooldown");
+    expect(cohortSummary({ needs_only: true })).toBe("with a recorded need");
     expect(cohortSummary({})).toBe("All people");
   });
   it("exports exactly two identifier columns even if extra fields exist", () => {
