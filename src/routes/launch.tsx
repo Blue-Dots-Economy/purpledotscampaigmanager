@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useProgram } from "@/programs/context";
 import { useProgramOverrides } from "@/lib/program-overrides";
 import {
@@ -47,19 +47,21 @@ import {
   Loader2,
   X,
   Gauge,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ScheduleEditor, type ScheduleState, makeDefaultSchedule } from "@/components/ScheduleEditor";
 import { appendLaunchLog } from "@/lib/launch-log";
 import { cn } from "@/lib/utils";
-import { loadSeekersAsync, type Seeker } from "@/lib/upSeekersCsv";
-import { buildCohort, type CohortIntent, type ConfidenceBand } from "@/lib/cohort";
+import { PickCohort } from "@/components/launch/PickCohort";
+import { cohortSummary, cohortIdsCsv, type CohortUiState, type LockedCohort } from "@/lib/cohort-live";
+import { fetchCohortIds } from "@/lib/cohort.functions";
 import { LAUNCH_PROGRAMS } from "@/lib/launch-program";
 import { getLaunchAgentUsage } from "@/lib/agent-ranking.functions";
 import { sortAgentsByUsage } from "@/lib/agent-ranking";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-export const ENABLE_COHORT_AUDIENCE = false;
+export const ENABLE_COHORT_AUDIENCE = true;
 
 export function resolveLaunchAudienceSource(selected: "upload" | "cohort"): "upload" | "cohort" {
   return ENABLE_COHORT_AUDIENCE ? selected : "upload";
@@ -138,11 +140,8 @@ function LaunchWizard() {
 
   const [selectedSource, setSource] = useState<"upload" | "cohort">("upload");
   const source = resolveLaunchAudienceSource(selectedSource);
-  const [cohortIntent, setCohortIntent] = useState<CohortIntent>("drive");
-  const [profileStatuses, setProfileStatuses] = useState<string[]>(["Active", "At Risk"]);
-  const [confidenceBand, setConfidenceBand] = useState<ConfidenceBand>("low");
-  const [seekers, setSeekers] = useState<Seeker[] | null>(null);
-  const [seekersLoading, setSeekersLoading] = useState(false);
+  const [cohortState, setCohortState] = useState<CohortUiState>({});
+  const [lockedCohort, setLockedCohort] = useState<LockedCohort | null>(null);
 
   const [schedule, setSchedule] = useState<ScheduleState>(() => makeDefaultSchedule());
   const [concurrency, setConcurrency] = useState(5);
@@ -167,6 +166,21 @@ function LaunchWizard() {
   const validateFn = useServerFn(validateContacts);
   const createBatchFn = useServerFn(rayaCreateBatch);
   const startBatchFn = useServerFn(rayaStartBatch);
+  const cohortIdsFn = useServerFn(fetchCohortIds);
+  const downloadCohort = useMutation({
+    mutationFn: cohortIdsFn,
+    onSuccess: (rows) => {
+      const url = URL.createObjectURL(new Blob([cohortIdsCsv(rows)], { type: "text/csv;charset=utf-8" }));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `cohort-${campaignType}-${campaignDate}.csv`;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success(`${rows.length.toLocaleString("en-IN")} identifiers downloaded`);
+    },
+  });
   const recordBatchFn = useServerFn(recordLaunchedBatch);
   const nextDayFn = useServerFn(getNextCampaignDay);
   const usage = useConcurrencyUsage({ enabled: !launching });
@@ -183,28 +197,9 @@ function LaunchWizard() {
   const campaignType = useMemo(() => {
     const lang = regionInfo.language || region || "";
     const dayNum = (campaignDay.match(/\d+/) || ["1"])[0];
-    const intentTag = source === "cohort" ? (cohortIntent === "drive" ? "DriveApplications" : "FillInfo") : "";
-    return `${program.toUpperCase()}_${lang}_${intentTag ? intentTag + "_" : ""}Day${dayNum}`;
-  }, [program, regionInfo.language, region, campaignDay, source, cohortIntent]);
-
-  useEffect(() => {
-    if (source === "cohort" && !seekers && !seekersLoading) {
-      setSeekersLoading(true);
-      loadSeekersAsync()
-        .then((r) => setSeekers(r.seekers))
-        .catch(() => setSeekers([]))
-        .finally(() => setSeekersLoading(false));
-    }
-  }, [source, seekers, seekersLoading]);
-
-  useEffect(() => {
-    if (source === "cohort" && region !== "GZB") setRegion("GZB");
-  }, [source, region]);
-
-  const cohortContacts = useMemo(
-    () => (seekers ? buildCohort(seekers, { intent: cohortIntent, profileStatuses, confidenceBand }) : []),
-    [seekers, cohortIntent, profileStatuses, confidenceBand],
-  );
+    if (source === "cohort") return `${program.toUpperCase()}_Cohort_Day${dayNum}`;
+    return `${program.toUpperCase()}_${lang}_Day${dayNum}`;
+  }, [program, regionInfo.language, region, campaignDay, source]);
 
   // Fetch next campaign day suggestion when program changes.
   useEffect(() => {
@@ -277,7 +272,7 @@ function LaunchWizard() {
     if (step === 0) return !!program;
     if (step === 1) return !!agentId;
     if (step === 2) {
-      if (source === "cohort") return cohortContacts.length > 0;
+      if (source === "cohort") return (lockedCohort?.total ?? 0) > 0;
       if (!report) return false;
       if (report.missingCols.length > 0) return false;
       if (report.invalid === 0) return true;
@@ -290,7 +285,7 @@ function LaunchWizard() {
       return true;
     }
     return true;
-  }, [step, program, agentId, report, proceedInvalid, schedule, concurrency, maxRetries, retryAfterHrs, available, source, cohortContacts.length]);
+  }, [step, program, agentId, report, proceedInvalid, schedule, concurrency, maxRetries, retryAfterHrs, available, source, lockedCohort]);
 
   const onFile = useCallback(async (f: File) => {
     setFile(f);
@@ -313,6 +308,7 @@ function LaunchWizard() {
   }, [validateFn]);
 
   const startCreatedBatch = async (id: string, logRows?: number) => {
+    if (source !== "upload") return; // Cohorts never enter the dialler path.
     setLaunching(true);
     setLaunchError(null);
     setStartPending(false);
@@ -355,6 +351,7 @@ function LaunchWizard() {
   };
 
   const launch = async () => {
+    if (source !== "upload") return; // Identifier-only cohorts are downloaded for the DPG.
     if (Number.isFinite(available) && concurrency > (available as number)) {
       const msg = `Only ${available} concurrency available — reduce concurrency or stop a running batch.`;
       setLaunchError(msg);
@@ -363,10 +360,7 @@ function LaunchWizard() {
     }
     setLaunching(true); setLaunchError(null); setStartPending(false); setStartStatus(null);
     try {
-      const contacts =
-        source === "cohort"
-          ? cohortContacts.map((c) => ({ ...c, _region: region }))
-          : (report?.validRows ?? []).map((r) => ({
+      const contacts = (report?.validRows ?? []).map((r) => ({
               contact_name: r.name,
               contact_phone: r.phone,
               country_code: r.cc,
@@ -425,7 +419,7 @@ function LaunchWizard() {
         date: new Date().toISOString(),
         program,
         file: file?.name ?? batchName,
-        rows: source === "cohort" ? cohortContacts.length : (report?.valid ?? 0),
+        rows: report?.valid ?? 0,
         status: "failed",
       });
     } finally {
@@ -518,13 +512,16 @@ function LaunchWizard() {
           {ENABLE_COHORT_AUDIENCE && <div className="grid gap-3 sm:grid-cols-2 max-w-xl">
             {([
               { id: "upload", icon: Upload, title: "Bulk upload", desc: "Dial a CSV of contacts you provide." },
-              { id: "cohort", icon: Gauge, title: "Create cohort", desc: "Build an audience from My Blue Dots." },
+              { id: "cohort", icon: Gauge, title: "Pick a cohort", desc: "Choose people from the live database." },
             ] as const).map((o) => (
-              <button
+              <Button
                 key={o.id}
-                onClick={() => setSource(o.id)}
+                type="button"
+                variant="outline"
+                aria-pressed={source === o.id}
+                onClick={() => { setSource(o.id); downloadCohort.reset(); }}
                 className={cn(
-                  "rounded-xl border-2 p-4 text-left transition-colors flex items-start gap-3",
+                  "h-auto whitespace-normal rounded-lg border-2 p-4 text-left transition-colors flex items-start justify-start gap-3",
                   source === o.id ? "border-brand bg-brand-soft" : "border-border bg-card hover:bg-muted/40",
                 )}
               >
@@ -533,7 +530,7 @@ function LaunchWizard() {
                   <span className="block text-sm font-semibold">{o.title}</span>
                   <span className="block text-xs text-muted-foreground mt-0.5">{o.desc}</span>
                 </span>
-              </button>
+              </Button>
             ))}
           </div>}
           {source === "upload" ? (
@@ -550,15 +547,11 @@ function LaunchWizard() {
               onReset={() => { setFile(null); setParsed(null); setReport(null); setProceedInvalid(false); }}
             />
           ) : (
-            <CohortStep
-              intent={cohortIntent}
-              setIntent={setCohortIntent}
-              profileStatuses={profileStatuses}
-              setProfileStatuses={setProfileStatuses}
-              confidenceBand={confidenceBand}
-              setConfidenceBand={setConfidenceBand}
-              loading={seekersLoading}
-              count={cohortContacts.length}
+            <PickCohort
+              state={cohortState}
+              onChange={(state) => { setCohortState(state); setLockedCohort(null); downloadCohort.reset(); }}
+              locked={lockedCohort}
+              onUse={setLockedCohort}
             />
           )}
         </div>
@@ -645,17 +638,19 @@ function LaunchWizard() {
       )}
 
       {step === 5 && (
-        <Panel title="Step 6 · Review" description="Confirm everything before sending to Raya">
+        <Panel title="Step 6 · Review" description={source === "cohort" ? "Confirm the cohort for the DPG" : "Confirm everything before sending to Raya"}>
           <div className="grid gap-3 sm:grid-cols-2 text-sm max-w-3xl">
             <Field label="Program" value={config.label} />
             <Field label="Agent" value={agentName || agentId} mono />
             <Field label="Agent id" value={agentId} mono />
             <Field label="Batch name" value={batchName} />
-            <Field label="Audience" value={source === "cohort" ? "Cohort · My Blue Dots" : "Bulk upload"} />
+            <Field label="Audience" value={source === "cohort" ? "Pick a cohort" : "Bulk upload"} />
             {source === "cohort" ? (
               <>
-                <Field label="Cohort intent" value={cohortIntent === "drive" ? "Drive Applications" : "Fill Missing Information"} />
-                <Field label="Cohort filter" value={cohortIntent === "drive" ? profileStatuses.join(", ") : `Confidence ${confidenceBand}`} />
+                <Field label="Cohort filters" value={cohortSummary(lockedCohort?.filter ?? {})} />
+                <Field label="Matched people" value={(lockedCohort?.total ?? 0).toLocaleString("en-IN")} />
+                <Field label="Previous calls" value={lockedCohort?.filter.max_calls === undefined ? "No previous-call limit" : `Called at most ${lockedCohort.filter.max_calls} times before`} />
+                <Field label="Cooldown" value={lockedCohort?.filter.cooldown_days === undefined ? "No cooldown restriction" : `Not called in the last ${lockedCohort.filter.cooldown_days} days`} />
               </>
             ) : (
               <Field label="File" value={file?.name ?? "—"} />
@@ -666,7 +661,7 @@ function LaunchWizard() {
             <Field label="Campaign day" value={campaignDay} />
             <Field label="Campaign date" value={campaignDate} />
             <Field label="Campaign type" value={campaignType} />
-            <Field label="Contacts" value={source === "cohort" ? String(cohortContacts.length) : `${report?.valid ?? 0} of ${report?.total ?? 0}`} />
+            {source === "upload" && <Field label="Contacts" value={`${report?.valid ?? 0} of ${report?.total ?? 0}`} />}
             <Field label="Will skip" value={String(report?.invalid ?? 0)} />
             <Field label="Days" value={dayLabels(schedule.days)} />
             <Field label="Time window" value={`${schedule.startTime}–${schedule.endTime}`} />
@@ -695,8 +690,20 @@ function LaunchWizard() {
       )}
 
       {step === 6 && (
-        <Panel title="Step 7 · Launch" description="Create the batch in Raya and start the schedule">
-          <div className="space-y-4 max-w-xl">
+        <Panel title="Step 7 · Launch" description={source === "cohort" ? undefined : "Create the batch in Raya and start the schedule"}>
+          {source === "cohort" ? (
+            <div className="max-w-xl space-y-4">
+              <p className="text-sm text-muted-foreground">This cohort is ready for the DPG, which places the calls. The dashboard does not dial, and holds no phone numbers.</p>
+              <p className="text-2xl font-semibold tabular-nums">{(lockedCohort?.total ?? 0).toLocaleString("en-IN")} people</p>
+              <p className="text-sm break-words">{cohortSummary(lockedCohort?.filter ?? {})}</p>
+              <Button variant="outline" className="gap-2" disabled={!lockedCohort?.total || downloadCohort.isPending} onClick={() => {
+                if (!lockedCohort?.total) return;
+                downloadCohort.mutate({ data: { filter: lockedCohort.filter, limit: lockedCohort.total } });
+              }}>{downloadCohort.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} {downloadCohort.isPending ? "Preparing cohort…" : "Download cohort"}</Button>
+              {downloadCohort.isError && <p role="alert" className="text-sm text-destructive">{downloadCohort.error instanceof Error ? downloadCohort.error.message : "Download failed. Please retry."}</p>}
+              {downloadCohort.isSuccess && <p role="status" className="text-sm text-muted-foreground">{downloadCohort.data.length.toLocaleString("en-IN")} identifiers downloaded.</p>}
+            </div>
+          ) : <div className="space-y-4 max-w-xl">
             {!batchId && !launching && canDirectLaunch && (
               <Button onClick={launch} variant="outline" className="gap-1.5">
                 <Rocket className="h-4 w-4" /> Launch campaign
@@ -729,7 +736,7 @@ function LaunchWizard() {
                 <div className="whitespace-pre-line">{launchError}</div>
               </div>
             )}
-          </div>
+          </div>}
         </Panel>
       )}
 
@@ -742,7 +749,7 @@ function LaunchWizard() {
             Next <ChevronRight className="ml-1 h-4 w-4" />
           </Button>
         ) : (
-          <Button variant="outline" onClick={() => { setStep(0); setBatchId(null); setStartStatus(null); setStartPending(false); setFile(null); setParsed(null); setReport(null); }}>
+          <Button variant="outline" onClick={() => { setStep(0); setBatchId(null); setStartStatus(null); setStartPending(false); setFile(null); setParsed(null); setReport(null); setLockedCohort(null); setCohortState({}); downloadCohort.reset(); }}>
             Start over
           </Button>
         )}
@@ -945,115 +952,4 @@ function InfoTile({ icon, label, value, hint }: { icon?: React.ReactNode; label:
 const DAY_NAMES = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 function dayLabels(days: number[]) {
   return days.slice().sort().map((d) => DAY_NAMES[d]).join(", ") || "—";
-}
-
-function CohortStep({
-  intent, setIntent, profileStatuses, setProfileStatuses, confidenceBand, setConfidenceBand, loading, count,
-}: {
-  intent: CohortIntent;
-  setIntent: (v: CohortIntent) => void;
-  profileStatuses: string[];
-  setProfileStatuses: (v: string[]) => void;
-  confidenceBand: ConfidenceBand;
-  setConfidenceBand: (v: ConfidenceBand) => void;
-  loading: boolean;
-  count: number;
-}) {
-  const STATUSES = ["New", "Active", "At Risk", "Inactive"];
-  const BANDS: { id: ConfidenceBand; label: string }[] = [
-    { id: "low", label: "Low (< 40)" },
-    { id: "medium", label: "Medium (40–70)" },
-    { id: "high", label: "High (> 70)" },
-  ];
-  const toggleStatus = (s: string) =>
-    setProfileStatuses(profileStatuses.includes(s) ? profileStatuses.filter((x) => x !== s) : [...profileStatuses, s]);
-
-  return (
-    <Panel title="Step 3 · Create cohort" description="Build an audience from My Blue Dots">
-      <div className="grid gap-3 sm:grid-cols-2 max-w-xl mb-5">
-        {([
-          { id: "drive", icon: Rocket, title: "Drive Applications", desc: "Call seekers to push them to apply." },
-          { id: "fill", icon: FileText, title: "Fill Missing Information", desc: "Call seekers to complete their profile." },
-        ] as const).map((o) => (
-          <button
-            key={o.id}
-            onClick={() => setIntent(o.id)}
-            className={cn(
-              "rounded-xl border-2 p-4 text-left transition-colors flex items-start gap-3",
-              intent === o.id ? "border-brand bg-brand-soft" : "border-border bg-card hover:bg-muted/40",
-            )}
-          >
-            <span className="mt-0.5 text-brand"><o.icon className="h-5 w-5" /></span>
-            <span>
-              <span className="flex items-center gap-2 text-sm font-semibold">
-                {o.title}
-                {o.id === "fill" && <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:text-amber-300">Mock</span>}
-              </span>
-              <span className="block text-xs text-muted-foreground mt-0.5">{o.desc}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {intent === "drive" ? (
-        <div className="max-w-xl">
-          <Label className="text-xs">Profile status · select one or more</Label>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {STATUSES.map((s) => {
-              const on = profileStatuses.includes(s);
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => toggleStatus(s)}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors flex items-center gap-1.5",
-                    on ? "border-brand bg-brand text-brand-foreground hover:bg-brand/90" : "border-border bg-card text-muted-foreground hover:bg-muted/40",
-                  )}
-                >
-                  {on && <Check className="h-3 w-3" />}{s}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : (
-        <div className="max-w-xl">
-          <div className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/15 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
-            Confidence score isn't in the data yet — this is a mock using profile completeness as a stand-in until the field lands.
-          </div>
-          <Label className="text-xs">Confidence score · target a band</Label>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {BANDS.map((b) => {
-              const on = confidenceBand === b.id;
-              return (
-                <button
-                  key={b.id}
-                  type="button"
-                  onClick={() => setConfidenceBand(b.id)}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors flex items-center gap-1.5",
-                    on ? "border-brand bg-brand text-brand-foreground hover:bg-brand/90" : "border-border bg-card text-muted-foreground hover:bg-muted/40",
-                  )}
-                >
-                  {on && <Check className="h-3 w-3" />}{b.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-5 flex items-baseline gap-2 border-t border-border pt-4">
-        {loading ? (
-          <span className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading My Blue Dots…</span>
-        ) : (
-          <>
-            <span className="text-2xl font-semibold tabular-nums">{count.toLocaleString("en-IN")}</span>
-            <span className="text-sm text-muted-foreground">blue dots match — they'll be called</span>
-          </>
-        )}
-      </div>
-    </Panel>
-  );
 }
