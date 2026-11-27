@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
-import { buildCohortFilter, cohortSummary, validateCohortFilter, cohortIdsCsv, COHORT_ARRAY_KEYS } from "./cohort-live";
+import { buildCohortFilter, cohortSummary, validateCohortFilter, cohortIdsCsv, COHORT_ARRAY_KEYS, districtsForStates, districtsAfterStateChange, type CohortDistrict } from "./cohort-live";
 
 describe("cohort filters", () => {
   it("omits every unselected array rather than sending an empty array", () => {
@@ -57,5 +57,32 @@ describe("cohort filters", () => {
       await invoke("unused-batch");
       expect(sideEffects).toBe(0);
     }
+  });
+});
+
+describe("cohort districts", () => {
+  const all: CohortDistrict[] = [
+    { state: "Uttar Pradesh", district: "Basti" }, { state: "Uttar Pradesh", district: "Lucknow" },
+    { state: "Maharashtra", district: "Pune" }, { state: "Maharashtra", district: "Aurangabad" },
+    { state: "Bihar", district: "Aurangabad" },
+  ];
+  it("narrows districts to the selected states", () => {
+    expect(districtsForStates(all, ["Uttar Pradesh"])).toEqual(["Basti", "Lucknow"]);
+    expect(districtsForStates(all, ["Uttar Pradesh", "Bihar"])).toEqual(["Aurangabad", "Basti", "Lucknow"]);
+  });
+  it("offers every district when no state is selected", () => {
+    expect(districtsForStates(all, [])).toEqual(["Aurangabad", "Basti", "Lucknow", "Pune"]);
+  });
+  it("removes a deselected state's districts from the selection", () => {
+    expect(districtsAfterStateChange(all, ["Uttar Pradesh", "Maharashtra"], ["Maharashtra"], ["Basti", "Pune"])).toEqual(["Pune"]);
+    expect(districtsAfterStateChange(all, ["Uttar Pradesh"], [], ["Basti"])).toEqual([]);
+  });
+  it("offers and keeps a district name shared by two states when either state is selected", () => {
+    expect(districtsForStates(all, ["Maharashtra"])).toContain("Aurangabad");
+    expect(districtsForStates(all, ["Bihar"])).toEqual(["Aurangabad"]);
+    expect(districtsAfterStateChange(all, ["Maharashtra", "Bihar"], ["Bihar"], ["Aurangabad", "Pune"])).toEqual(["Aurangabad"]);
+  });
+  it("drops a district that the newly selected states no longer offer", () => {
+    expect(districtsAfterStateChange(all, [], ["Maharashtra"], ["Basti", "Pune"])).toEqual(["Pune"]);
   });
 });

@@ -4,7 +4,9 @@ export type CohortArrayKey = typeof COHORT_ARRAY_KEYS[number];
 export type CohortNumberKey = typeof COHORT_NUMBER_KEYS[number];
 export type CohortFilter = Partial<Record<CohortArrayKey, string[]> & Record<CohortNumberKey, number> & { needs_only: boolean }>;
 export type CohortUiState = Partial<Record<CohortArrayKey, string[]> & Record<CohortNumberKey, string> & { needs_only: boolean }>;
-export interface CohortOptions { orgs: string[]; states: string[]; categories: string[]; requests: string[]; things: string[]; bands: string[]; lifecycle: string[] }
+/** A district is only unique within its state: two district names occur in more than one state. */
+export interface CohortDistrict { state: string; district: string }
+export interface CohortOptions { orgs: string[]; states: string[]; categories: string[]; requests: string[]; things: string[]; bands: string[]; lifecycle: string[]; districts?: CohortDistrict[] }
 export interface CohortSample {
   item_id: string; org_name: string | null; state: string | null; district: string | null;
   band: string | null; calls_made: number; completion: number | null; last_call_date: string | null; categories: string[];
@@ -65,4 +67,22 @@ export function cohortSummary(filter: CohortFilter): string {
 export function cohortIdsCsv(rows: CohortId[]): string {
   const escape = (value: string | null) => `"${(value ?? "").replaceAll('"', '""')}"`;
   return ["item_id,user_id", ...rows.map(row => `${escape(row.item_id)},${escape(row.user_id)}`)].join("\r\n");
+}
+
+/** District names on offer: every district with no state selected, otherwise only those in the selected states. */
+export function districtsForStates(all: CohortDistrict[], states: string[]): string[] {
+  const names = new Set<string>();
+  for (const row of all) if (!states.length || states.includes(row.state)) names.add(row.district);
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Selected districts after the state selection changes. Districts of a deselected state are dropped unless a
+ * still-selected state has a district of the same name, and nothing outside the narrowed list survives.
+ */
+export function districtsAfterStateChange(all: CohortDistrict[], previousStates: string[], nextStates: string[], selected: string[]): string[] {
+  const removed = previousStates.filter(state => !nextStates.includes(state));
+  const dropped = new Set(all.filter(row => removed.includes(row.state)).map(row => row.district));
+  const kept = new Set(all.filter(row => nextStates.includes(row.state)).map(row => row.district));
+  return selected.filter(name => nextStates.length ? kept.has(name) : !dropped.has(name));
 }
